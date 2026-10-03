@@ -13,5 +13,12 @@ use DateTimeImmutable;
  */
 interface DailyReportQuery
 {
-    public function for(DateTimeImmutable $date, int $lowStockThreshold): DailyReport;
+    /** The low-stock list and the day's sales come one page at a time. */
+    public function for(
+        DateTimeImmutable $date,
+        int $lowStockThreshold,
+        int $lowStockPage = 1,
+        int $historyPage = 1,
+        int $perPage = 10,
+    ): DailyReport;
 }

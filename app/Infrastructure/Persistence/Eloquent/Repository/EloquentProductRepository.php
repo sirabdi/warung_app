@@ -56,4 +56,9 @@ final class EloquentProductRepository implements ProductRepository
             ->when($exceptId, fn ($query) => $query->whereKeyNot($exceptId))
             ->exists();
     }
+
+    public function countInCategory(int $categoryId): int
+    {
+        return ProductModel::where('category_id', $categoryId)->count();
+    }
 }

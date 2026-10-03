@@ -1,18 +1,95 @@
-import { usePage } from '@inertiajs/react';
-import { useMemo, useRef, useState } from 'react';
-import Layout from '../Components/Layout';
-import { useCashierProducts, useRecordSale } from '../api/hooks';
-import { formatRupiah, matches } from '../lib';
+import { usePage } from "@inertiajs/react";
+import {
+    AlertCircle,
+    Check,
+    Minus,
+    Pencil,
+    Plus,
+    Search,
+    ShoppingCart,
+    Trash2,
+} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import DataPagination from "@/components/DataPagination";
+import Layout from "@/components/Layout";
+import WeighDialog from "@/components/WeighDialog";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectSeparator,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetTitle,
+} from "@/components/ui/sheet";
+import {
+    cashierProductsQuery,
+    useCashierProducts,
+    useCategoryOptions,
+    useRecordSale,
+} from "@/api/hooks";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { formatRupiah } from "@/lib/format";
+import {
+    formatPrice,
+    formatQty,
+    isLowStock,
+    isMeasured,
+    itemCount,
+    lineTotal,
+} from "@/lib/units";
+import { cn } from "@/lib/utils";
 
-export default function Cashier({ products: initialProducts }) {
+const ALL = "all";
+
+export default function Cashier({
+    products: initialPage,
+    categories: initialCategories,
+}) {
     const { lowStockThreshold } = usePage().props;
-    const [query, setQuery] = useState('');
-    const [cart, setCart] = useState({}); // { [productId]: qty }
+    const queryClient = useQueryClient();
+    const [query, setQuery] = useState("");
+    const [category, setCategory] = useState(ALL);
+    // { [productId]: { product, qty } } — qty in pcs / gram / ml. The product is
+    // kept with it because the line may be on another page of the list.
+    const [cart, setCart] = useState({});
+    const [weighing, setWeighing] = useState(null); // product in the weigh dialog
     const [showCart, setShowCart] = useState(false);
     const searchRef = useRef(null);
 
-    // Server-rendered list first, then kept fresh by TanStack Query.
-    const { data: products } = useCashierProducts(initialProducts);
+    // The page belongs to one filter: a new search or category starts at page 1.
+    const debouncedQuery = useDebouncedValue(query.trim());
+    const filterKey = `${debouncedQuery}|${category}`;
+    const [paging, setPaging] = useState({ filterKey: `|${ALL}`, page: 1 });
+    const page = paging.filterKey === filterKey ? paging.page : 1;
+    const setPage = (next) => setPaging({ filterKey, page: next });
+
+    const params = {
+        page,
+        search: debouncedQuery,
+        category: category === ALL ? "" : category,
+    };
+    const isInitial = page === 1 && filterKey === `|${ALL}`;
+    const { data, isPlaceholderData } = useCashierProducts(
+        params,
+        isInitial ? initialPage : undefined,
+    );
+    const list = data.data;
+
+    const { data: allCategories } = useCategoryOptions(initialCategories);
+    const categories = allCategories.filter((item) => item.products_count > 0);
 
     const sale = useRecordSale(() => {
         setCart({});
@@ -20,169 +97,418 @@ export default function Cashier({ products: initialProducts }) {
         searchRef.current?.focus();
     });
 
-    const saleError = sale.error ? (sale.error.fieldErrors?.items ?? sale.error.message) : null;
+    const saleError = sale.error
+        ? (sale.error.fieldErrors?.items ?? sale.error.message)
+        : null;
 
-    const byId = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
-    const list = useMemo(
-        () => (query ? products.filter((p) => matches(p.name, query)) : products),
-        [products, query],
+    // Prefer the freshest copy of a product (its stock may have changed).
+    const items = Object.values(cart).map((line) => ({
+        product: list.find((p) => p.id === line.product.id) ?? line.product,
+        qty: line.qty,
+    }));
+    const total = items.reduce(
+        (sum, item) =>
+            sum + lineTotal(item.product.sell_price, item.qty, item.product.unit),
+        0,
     );
+    const count = items.reduce(
+        (sum, item) => sum + itemCount(item.qty, item.product.unit),
+        0,
+    );
+    const qtyInCart = (product) => cart[product.id]?.qty ?? 0;
 
-    const items = Object.entries(cart)
-        .map(([id, qty]) => ({ product: byId[id], qty }))
-        .filter((item) => item.product);
-    const total = items.reduce((sum, item) => sum + item.product.sell_price * item.qty, 0);
-    const count = items.reduce((sum, item) => sum + item.qty, 0);
-
-    const setQty = (id, qty) => {
+    const setQty = (product, qty) => {
         if (sale.isError) sale.reset();
         setCart((current) => {
             const next = { ...current };
-            const max = byId[id]?.stock ?? 0;
-            if (qty <= 0) delete next[id];
-            else next[id] = Math.min(qty, max);
+            if (qty <= 0) delete next[product.id];
+            else next[product.id] = { product, qty: Math.min(qty, product.stock) };
             return next;
         });
     };
 
-    const add = (product) => setQty(product.id, (cart[product.id] || 0) + 1);
+    // Pieces: one more per tap. Weighed goods: ask how much first.
+    const add = (product) =>
+        isMeasured(product.unit)
+            ? setWeighing(product)
+            : setQty(product, qtyInCart(product) + 1);
 
-    const onSearchKey = (e) => {
-        // Enter = add the top search result, then clear the search box.
-        if (e.key === 'Enter' && list.length) {
-            const product = list.find((p) => p.stock > (cart[p.id] || 0));
-            if (product) add(product);
-            setQuery('');
-        }
+    // Enter = add the top result of what is typed right now, then clear the box.
+    // The list on screen may still be waiting for the debounce, so ask directly.
+    const onSearchKey = async (e) => {
+        if (e.key !== "Enter" || !query.trim()) return;
+        e.preventDefault();
+        const result = await queryClient.fetchQuery(
+            cashierProductsQuery({ ...params, page: 1, search: query.trim() }),
+        );
+        const product = result.data.find((p) => p.stock > qtyInCart(p));
+        if (product) add(product);
+        setQuery("");
     };
 
     const checkout = () => {
         if (!items.length || sale.isPending) return;
-        sale.mutate(items.map((item) => ({ product_id: item.product.id, qty: item.qty })));
+        sale.mutate(
+            items.map((item) => ({
+                product_id: item.product.id,
+                qty: item.qty,
+            })),
+        );
     };
 
     const cartPanel = (
         <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
-                <h2 className="font-bold">Keranjang ({count})</h2>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+                <h2 className="flex items-center gap-2 font-semibold">
+                    <ShoppingCart className="size-4" />
+                    Keranjang
+                    <Badge variant="secondary">{count}</Badge>
+                </h2>
                 {items.length > 0 && (
-                    <button onClick={() => setCart({})} className="text-sm text-red-600">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCart({})}
+                        className="text-destructive"
+                    >
+                        <Trash2 />
                         Kosongkan
-                    </button>
+                    </Button>
                 )}
             </div>
             <div className="flex-1 overflow-y-auto">
-                {items.length === 0 && <p className="p-6 text-center text-stone-400">Ketuk produk untuk menambah</p>}
+                {items.length === 0 && (
+                    <Empty>
+                        <EmptyDescription>
+                            Ketuk produk untuk menambah
+                        </EmptyDescription>
+                    </Empty>
+                )}
                 {items.map(({ product, qty }) => (
-                    <div key={product.id} className="flex items-center gap-2 border-b border-stone-100 px-4 py-2">
+                    <div
+                        key={product.id}
+                        className="flex items-center gap-2 border-b px-4 py-2 last:border-b-0"
+                    >
                         <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">{product.name}</div>
-                            <div className="text-sm text-stone-500">{formatRupiah(product.sell_price * qty)}</div>
+                            <div className="truncate font-medium">
+                                {product.name}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                                {isMeasured(product.unit) &&
+                                    `${formatQty(qty, product.unit)} · `}
+                                {formatRupiah(
+                                    lineTotal(
+                                        product.sell_price,
+                                        qty,
+                                        product.unit,
+                                    ),
+                                )}
+                            </div>
                         </div>
-                        <button onClick={() => setQty(product.id, qty - 1)} className="btn-ghost size-10 p-0 text-xl">
-                            −
-                        </button>
-                        <span className="w-8 text-center text-lg font-bold">{qty}</span>
-                        <button
-                            onClick={() => setQty(product.id, qty + 1)}
-                            disabled={qty >= product.stock}
-                            className="btn-ghost size-10 p-0 text-xl"
-                        >
-                            +
-                        </button>
+                        {isMeasured(product.unit) ? (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setWeighing(product)}
+                                >
+                                    <Pencil />
+                                    <span className="sr-only">
+                                        Ubah berat {product.name}
+                                    </span>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setQty(product, 0)}
+                                    className="text-destructive hover:text-destructive"
+                                >
+                                    <Trash2 />
+                                    <span className="sr-only">
+                                        Hapus {product.name}
+                                    </span>
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setQty(product, qty - 1)}
+                                >
+                                    <Minus />
+                                </Button>
+                                <span className="w-8 text-center text-lg font-bold tabular-nums">
+                                    {qty}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setQty(product, qty + 1)}
+                                    disabled={qty >= product.stock}
+                                >
+                                    <Plus />
+                                </Button>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>
-            {saleError && <p className="bg-red-50 px-4 py-2 text-sm font-medium text-red-700">{saleError}</p>}
-            <div className="border-t border-stone-200 p-4">
+            {saleError && (
+                <Alert
+                    variant="destructive"
+                    className="rounded-none border-x-0 border-b-0"
+                >
+                    <AlertCircle />
+                    <AlertTitle className="line-clamp-none">
+                        {saleError}
+                    </AlertTitle>
+                </Alert>
+            )}
+            <div className="border-t p-4">
                 <div className="mb-3 flex items-baseline justify-between">
-                    <span className="text-stone-500">Total</span>
-                    <span className="text-3xl font-bold">{formatRupiah(total)}</span>
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="text-3xl font-bold tabular-nums">
+                        {formatRupiah(total)}
+                    </span>
                 </div>
-                <button
+                <Button
+                    size="xl"
                     onClick={checkout}
                     disabled={!items.length || sale.isPending}
-                    className="btn-primary w-full py-4 text-xl"
+                    className="w-full"
                 >
-                    {sale.isPending ? 'Menyimpan…' : 'Selesai ✓'}
-                </button>
+                    {sale.isPending ? (
+                        "Menyimpan…"
+                    ) : (
+                        <>
+                            <Check />
+                            Selesai
+                        </>
+                    )}
+                </Button>
             </div>
         </div>
     );
 
     return (
         <Layout title="Kasir">
-            <div className={`md:grid md:grid-cols-[1fr_340px] md:gap-4 ${items.length ? 'pb-16 md:pb-0' : ''}`}>
-                <div>
-                    <input
-                        ref={searchRef}
-                        type="search"
-                        className="input sticky top-14 z-10 mb-3 shadow-sm"
-                        placeholder="Cari produk… (Enter = tambah)"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={onSearchKey}
-                    />
+            <div
+                className={cn(
+                    "md:grid md:grid-cols-[1fr_340px] md:gap-4",
+                    items.length && "pb-16 md:pb-0",
+                )}
+            >
+                <div className="@container min-w-0">
+                    <div className="sticky top-14 z-10 -mx-3 mb-3 bg-background/90 px-3 pb-2 backdrop-blur md:-mx-4 md:px-4">
+                        <div className="grid gap-2 sm:grid-cols-[1fr_15rem]">
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    ref={searchRef}
+                                    type="search"
+                                    className="pl-9"
+                                    placeholder="Cari produk… (Enter = tambah)"
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    onKeyDown={onSearchKey}
+                                />
+                            </div>
+                            <Select
+                                value={category}
+                                onValueChange={setCategory}
+                            >
+                                <SelectTrigger aria-label="Filter kategori">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={ALL}>
+                                        Semua kategori (
+                                        {categories.reduce(
+                                            (sum, item) =>
+                                                sum + item.products_count,
+                                            0,
+                                        )}
+                                        )
+                                    </SelectItem>
+                                    {categories.length > 0 && (
+                                        <SelectSeparator />
+                                    )}
+                                    {categories.map((item) => (
+                                        <SelectItem
+                                            key={item.id}
+                                            value={String(item.id)}
+                                        >
+                                            {item.name} ({item.products_count})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
 
-                    {products.length === 0 && (
-                        <p className="card p-6 text-center text-stone-500">
-                            Belum ada produk. Tambahkan dulu di menu <b>Produk</b>.
-                        </p>
+                    {list.length === 0 && (
+                        <Card className="py-0">
+                            <Empty>
+                                <EmptyDescription>
+                                    {debouncedQuery || category !== ALL ? (
+                                        <>
+                                            Produk tidak ditemukan
+                                            {category !== ALL &&
+                                                " di kategori ini"}
+                                            .
+                                        </>
+                                    ) : (
+                                        <>
+                                            Belum ada produk. Tambahkan dulu di
+                                            menu <b>Produk</b>.
+                                        </>
+                                    )}
+                                </EmptyDescription>
+                            </Empty>
+                        </Card>
                     )}
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {/* Columns follow the space left by the sidebar and cart, not the screen. */}
+                    <div
+                        className={cn(
+                            "grid grid-cols-2 gap-2 transition-opacity @lg:grid-cols-3 @3xl:grid-cols-4",
+                            isPlaceholderData && "opacity-60",
+                        )}
+                    >
                         {list.map((product) => {
-                            const inCart = cart[product.id] || 0;
+                            const inCart = qtyInCart(product);
                             const soldOut = product.stock <= inCart;
                             return (
-                                <button
+                                <Button
                                     key={product.id}
+                                    variant="outline"
                                     onClick={() => add(product)}
                                     disabled={soldOut}
-                                    className={`card relative p-3 text-left transition active:scale-[0.97] disabled:opacity-40 ${inCart ? 'ring-2 ring-emerald-600' : ''}`}
+                                    className={cn(
+                                        "relative h-auto flex-col items-stretch gap-0 bg-card p-3 text-left text-base whitespace-normal hover:border-primary/50 hover:bg-card hover:text-card-foreground active:scale-[0.97] disabled:opacity-40",
+                                        inCart &&
+                                            "border-primary ring-1 ring-primary",
+                                    )}
                                 >
                                     {inCart > 0 && (
-                                        <span className="absolute -top-2 -right-2 flex size-7 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white">
-                                            {inCart}
-                                        </span>
+                                        <Badge className="absolute -top-2 -right-2 h-7 min-w-7 text-sm font-bold shadow">
+                                            {isMeasured(product.unit)
+                                                ? formatQty(inCart, product.unit)
+                                                : inCart}
+                                        </Badge>
                                     )}
-                                    <div className="line-clamp-2 min-h-12 font-semibold leading-tight">{product.name}</div>
-                                    <div className="mt-1 font-bold text-emerald-700">{formatRupiah(product.sell_price)}</div>
-                                    <div className={`text-xs ${product.stock <= lowStockThreshold ? 'text-red-600' : 'text-stone-400'}`}>
-                                        {product.stock <= 0 ? 'Habis' : `Stok ${product.stock}`}
-                                    </div>
-                                </button>
+                                    <span className="mb-1 truncate text-xs font-normal text-muted-foreground">
+                                        {product.category_name ??
+                                            "Tanpa kategori"}
+                                    </span>
+                                    <span
+                                        className="truncate leading-tight font-semibold"
+                                        title={product.name}
+                                    >
+                                        {product.name}
+                                    </span>
+                                    <span className="mt-1 font-bold text-primary">
+                                        {formatPrice(
+                                            product.sell_price,
+                                            product.unit,
+                                        )}
+                                    </span>
+                                    <span
+                                        className={cn(
+                                            "text-xs font-normal text-muted-foreground",
+                                            isLowStock(
+                                                product.stock,
+                                                product.unit,
+                                                lowStockThreshold,
+                                            ) &&
+                                                "font-medium text-destructive",
+                                        )}
+                                    >
+                                        {product.stock <= 0
+                                            ? "Habis"
+                                            : `Stok ${formatQty(product.stock, product.unit)}`}
+                                    </span>
+                                </Button>
                             );
                         })}
                     </div>
+
+                    <DataPagination meta={data.meta} onPageChange={setPage} />
                 </div>
 
                 {/* Desktop/tablet: cart panel on the right */}
-                <aside className="card sticky top-18 hidden h-[calc(100dvh-6rem)] overflow-hidden md:block">{cartPanel}</aside>
+                <Card className="sticky top-18 hidden h-[calc(100dvh-10rem)] gap-0 overflow-hidden py-0 md:flex lg:h-[calc(100dvh-6rem)]">
+                    {cartPanel}
+                </Card>
             </div>
 
             {/* Phone: compact bar at the bottom, tap to open the cart */}
             {items.length > 0 && !showCart && (
                 <div className="fixed inset-x-0 bottom-16 z-30 p-3 md:hidden">
                     <div className="flex gap-2">
-                        <button onClick={() => setShowCart(true)} className="btn-ghost flex-1 justify-between shadow-lg">
-                            <span>{count} item</span>
-                            <span className="font-bold">{formatRupiah(total)}</span>
-                        </button>
-                        <button onClick={checkout} disabled={sale.isPending} className="btn-primary shadow-lg">
-                            {sale.isPending ? '…' : 'Selesai ✓'}
-                        </button>
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={() => setShowCart(true)}
+                            className="flex-1 justify-between shadow-lg"
+                        >
+                            <span className="flex items-center gap-2">
+                                <ShoppingCart />
+                                {count} item
+                            </span>
+                            <span className="font-bold">
+                                {formatRupiah(total)}
+                            </span>
+                        </Button>
+                        <Button
+                            size="lg"
+                            onClick={checkout}
+                            disabled={sale.isPending}
+                            className="shadow-lg"
+                        >
+                            {sale.isPending ? (
+                                "…"
+                            ) : (
+                                <>
+                                    <Check />
+                                    Selesai
+                                </>
+                            )}
+                        </Button>
                     </div>
-                    {saleError && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{saleError}</p>}
+                    {saleError && (
+                        <Alert variant="destructive" className="mt-2 bg-card">
+                            <AlertCircle />
+                            <AlertTitle className="line-clamp-none">
+                                {saleError}
+                            </AlertTitle>
+                        </Alert>
+                    )}
                 </div>
             )}
-            {showCart && (
-                <div className="fixed inset-0 z-40 flex flex-col bg-black/40 md:hidden" onClick={() => setShowCart(false)}>
-                    <div className="mt-auto flex max-h-[85dvh] flex-col rounded-t-2xl bg-white" onClick={(e) => e.stopPropagation()}>
-                        {cartPanel}
-                    </div>
-                </div>
-            )}
+            <Sheet open={showCart} onOpenChange={setShowCart}>
+                <SheetContent
+                    side="bottom"
+                    showCloseButton={false}
+                    className="max-h-[85dvh] gap-0 rounded-t-md md:hidden"
+                >
+                    <SheetTitle className="sr-only">Keranjang</SheetTitle>
+                    <SheetDescription className="sr-only">
+                        Daftar barang yang akan dibayar
+                    </SheetDescription>
+                    {cartPanel}
+                </SheetContent>
+            </Sheet>
+            <WeighDialog
+                product={weighing}
+                initialQty={weighing ? qtyInCart(weighing) : undefined}
+                onConfirm={(qty) => {
+                    setQty(weighing, qty);
+                    setWeighing(null);
+                }}
+                onClose={() => setWeighing(null)}
+            />
         </Layout>
     );
 }

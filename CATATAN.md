@@ -2,10 +2,21 @@
 
 ## Yang dikerjakan sekarang (hanya 4 ini)
 
-1. **Tambah/edit produk & harga** — `/products`
+1. **Tambah/edit produk & harga** — `/products` (setiap produk wajib punya kategori)
 2. **Catat stok masuk** — `/stock-in`
 3. **Transaksi jual (stok otomatis berkurang)** — `/` (kasir)
 4. **Laporan penjualan harian sederhana** — `/report`
+
+Tambahan atas permintaan pemilik (Oktober 2026):
+
+- **Kategori produk (CRUD)** — `/categories`. 11 kategori default dibuat oleh
+  `CategorySeeder`; produk lama dimasukkan ke kategorinya oleh
+  `ProductCategorySeeder`. Kategori yang masih dipakai produk tidak bisa dihapus.
+- **Satuan timbang (kg/liter)** — beras dan minyak curah ditimbang di depan
+  pembeli. Produk bisa bersatuan `pcs`, `kg`, atau `liter`; kasir menerima berat
+  atau nominal uang ("minyak 10 ribu"), total barang timbang dibulatkan ke
+  Rp 100. `Beras 1kg` dan `Minyak Goreng 1L` dikonversi oleh
+  `WeighedProductSeeder` (10 pcs → 10 kg).
 
 Login satu akun pemilik ikut dibuat karena aplikasi dipasang online dan datanya
 tidak boleh terbuka untuk publik. Tabel `users` sudah siap untuk multi-toko,
@@ -18,12 +29,12 @@ nyata di 1 warung minimal 1–2 minggu:
 
 - Multi-toko / multi-user per toko (kolom `store_id`, pemisahan data)
 - Hitung uang bayar & kembalian di kasir
-- Diskon, promo, harga grosir, satuan (pcs/dus/kg)
+- Diskon, promo, harga grosir, konversi satuan beli ↔ jual (dus/karung → pcs/kg)
 - Barcode scanner & kode produk
 - Cetak struk / printer bluetooth
 - Hapus produk & batalkan/refund transaksi
 - Retur barang, stok opname, koreksi stok manual
-- Kategori produk, foto produk
+- Foto produk
 - Utang/kasbon pelanggan
 - Laporan mingguan/bulanan, grafik tren, ekspor Excel
 - Notifikasi WhatsApp stok habis

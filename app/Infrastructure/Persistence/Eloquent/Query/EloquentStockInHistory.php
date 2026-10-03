@@ -3,22 +3,23 @@
 namespace App\Infrastructure\Persistence\Eloquent\Query;
 
 use App\Application\Inventory\Query\StockInHistory;
+use App\Application\Shared\Query\Page;
 use App\Infrastructure\Persistence\Eloquent\Models\StockIn;
 
 final class EloquentStockInHistory implements StockInHistory
 {
-    public function latest(int $limit = 30): array
+    use PaginatesQueries;
+
+    public function paginate(int $page, int $perPage): Page
     {
-        return StockIn::with('product:id,name')
-            ->latest('id')
-            ->limit($limit)
-            ->get()
-            ->map(fn (StockIn $stockIn) => [
-                'id' => $stockIn->id,
-                'name' => $stockIn->product->name,
-                'qty' => $stockIn->qty,
-                'time' => $stockIn->created_at->format('d/m H:i'),
-            ])
-            ->all();
+        $query = StockIn::with('product:id,name,unit')->latest('id');
+
+        return $this->page($query, $page, $perPage, ['*'], fn (StockIn $stockIn) => [
+            'id' => $stockIn->id,
+            'name' => $stockIn->product->name,
+            'unit' => $stockIn->product->unit,
+            'qty' => $stockIn->qty,
+            'time' => $stockIn->created_at->format('d/m H:i'),
+        ]);
     }
 }

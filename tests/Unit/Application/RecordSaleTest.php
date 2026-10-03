@@ -38,7 +38,7 @@ class RecordSaleTest extends TestCase
 
     private function product(string $name, int $sellPrice, int $stock): Product
     {
-        return $this->products->add(Product::register($name, Money::of($sellPrice), Money::of(1000), $stock));
+        return $this->products->add(Product::register($name, 1, Money::of($sellPrice), Money::of(1000), $stock));
     }
 
     public function test_a_sale_reduces_stock_and_returns_the_total(): void

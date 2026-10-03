@@ -12,7 +12,8 @@ class RecordSaleRequest extends FormRequest
         return [
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id'],
-            'items.*.qty' => ['required', 'integer', 'min:1', 'max:9999'],
+            // Pieces, or grams/ml for weighed goods (1,5 kg = 1500).
+            'items.*.qty' => ['required', 'integer', 'min:1', 'max:1000000'],
         ];
     }
 

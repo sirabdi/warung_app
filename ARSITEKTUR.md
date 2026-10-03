@@ -28,12 +28,14 @@ app/
 ├── Domain/
 │   ├── Shared/          Money (value object), DomainRuleViolation
 │   ├── Product/         Entity Product, ProductRepository, InsufficientStock, …
+│   ├── Category/        Entity Category, CategoryRepository, CategoryInUse, …
 │   ├── Sale/            Entity Sale + SaleItem, SaleCode, EmptyCart
 │   └── Inventory/       Entity StockIn
 ├── Application/
-│   ├── Shared/          Clock, TransactionManager (port teknis)
+│   ├── Shared/          Clock, TransactionManager (port teknis), Query/Page
 │   ├── Cashier/         RecordSale, Cart, ProductsForCashier
 │   ├── Product/         AddProduct, UpdateProduct, ProductData, ProductList
+│   ├── Category/        AddCategory, RenameCategory, DeleteCategory, CategoryList
 │   ├── Inventory/       RecordStockIn, StockInHistory
 │   └── Report/          DailyReportQuery + DTO laporan
 ├── Infrastructure/
@@ -93,9 +95,72 @@ resources/js/
 ├── api/client.js    fetch + XSRF + ApiError (punya fieldErrors)
 ├── api/hooks.js     useCashierProducts, useProducts, useStockInHistory,
 │                    useReport, useRecordSale, useRecordStockIn, useSaveProduct
-├── toast.js         pesan sukses dari mutation (dulu dari flash Inertia)
-└── Pages/           Cashier, Products, StockIn, Report, Login
+├── toast.js         pesan sukses dari mutation → Sonner (dulu dari flash Inertia)
+├── lib/format.js    formatRupiah, formatNumber, parseNumber, matches
+├── lib/utils.js     cn() = clsx + tailwind-merge (dipakai komponen shadcn)
+├── components/      Layout, NumberInput, DataPagination (komponen milik aplikasi)
+├── components/ui/   komponen shadcn/ui: alert, badge, button, card, dialog,
+│                    alert-dialog, empty, field, input, label, pagination,
+│                    progress, select, separator, sheet, sonner, table
+├── lib/units.js     formatQty, formatPrice, lineTotal, parseQty (cermin Unit di PHP)
+├── components/      … QuantityInput (desimal untuk kg/liter), WeighDialog (berat/nominal)
+├── hooks/           useDebouncedValue — satu request per jeda ketik, bukan per huruf
+├── lib/url.js       toQueryString, replaceUrl (?page= ikut di address bar)
+└── Pages/           Cashier, Products, Categories, StockIn, Report, Login
 ```
+
+Tampilan memakai **Tailwind v4 + shadcn/ui** (gaya new-york, versi JSX).
+Warna diatur lewat token CSS di `resources/css/app.css` (`--primary` hijau
+zamrud, netral `stone`); halaman memakai kelas semantik seperti
+`bg-primary`, `text-muted-foreground`, `text-destructive`, bukan warna mentah.
+Halaman tidak memakai elemen HTML bergaya sendiri: tombol = `Button`, pesan
+error kolom = `FieldError`, error umum = `Alert`, daftar kosong = `Empty`.
+Sudut dibatasi **maksimal 4px** (`--radius: 4px`; semua `rounded-*` dikunci ke
+nilai itu di `@theme`), dan font memakai **Quicksand** yang di-bundle dari
+`@fontsource-variable/quicksand` — tidak butuh internet di warung.
+File di `components/ui/` adalah kode kita sendiri — boleh diubah. Komponen baru
+ditambah dengan `npx shadcn@latest add <nama>` (konfigurasinya di
+`components.json`, alias `@/` → `resources/js/`).
+
+### Paginasi di server
+
+Semua daftar dipaginasi **di backend**; browser hanya
+menerima satu halaman (default 10 baris, maksimal 50).
+
+```
+GET /api/products?page=2&per_page=10&search=indo
+GET /api/stock-in/history?page=2
+→ { "data": [...], "meta": { "page": 2, "per_page": 10, "total": 37, "last_page": 4 } }
+```
+
+- `Application\Shared\Query\Page` adalah DTO polos — lapisan Application tidak
+  tahu `LengthAwarePaginator` milik Laravel.
+- `ProductList::paginate()` dan `StockInHistory::paginate()` adalah kontraknya;
+  trait `PaginatesQueries` di Infrastructure menjalankan satu `COUNT` lalu
+  `offset/limit`. Halaman di luar jangkauan jatuh ke halaman terakhir.
+- `ListRequest` membaca `page`, `per_page`, `search` dan **menjepit** nilai
+  aneh alih-alih menolak, supaya `/products?page=abc` tidak memicu redirect.
+- Pencarian memakai `LIKE … ESCAPE '!'`, jadi `50%` dicari sebagai teks, sama
+  hasilnya di MySQL maupun SQLite.
+- Di React, setiap halaman punya query key sendiri (`['products', {page, search}]`);
+  `invalidateQueries(['products'])` tetap menyegarkan semua halaman.
+
+| Halaman | Daftar | Per halaman | Parameter |
+| --- | --- | --- | --- |
+| Kasir `/` | produk (terlaris dulu), cari + filter kategori | 20 | `page`, `search`, `category` |
+| Produk `/products` | produk, cari + filter kategori | 10 | `page`, `search`, `category` |
+| Kategori `/categories` | kategori + jumlah produk | 10 | `page` |
+| Stok Masuk `/stock-in` | riwayat; pemilih produk di modal | 10 | `page` / `search` |
+| Laporan `/report` | stok menipis; transaksi hari itu | 10 + 10 | `low_page`, `history_page` |
+
+- Kasir ikut dipaginasi di server. Karena baris keranjang bisa berasal dari
+  halaman lain, keranjang menyimpan salinan produknya (`{ product, qty }`), dan
+  Enter di kotak cari langsung meminta hasil terbaru ke server alih-alih
+  menunggu debounce.
+- Pemilih kategori butuh semuanya sekaligus, jadi ada `GET /api/categories/options`
+  (tanpa paginasi) di samping `GET /api/categories?page=` untuk halaman Kategori.
+- Laporan punya dua daftar dalam satu payload; `lowStock` dan `history` sama-sama
+  berbentuk `{ data, meta }`.
 
 Error validasi 422 dari Laravel dibungkus jadi `ApiError.fieldErrors`, sehingga
 pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
@@ -106,6 +171,7 @@ pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
 | --- | --- | --- |
 | `GET /` | CashierController@index | `Cashier` |
 | `GET /products` | ProductController@index | `Products` |
+| `GET /categories` | CategoryController@index | `Categories` |
 | `GET /stock-in` | StockInController@index | `StockIn` |
 | `GET /report` | ReportController@index | `Report` |
 
@@ -115,8 +181,80 @@ pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
 | `POST /api/sales` | Api\CashierApiController@store |
 | `GET /api/products` | Api\ProductApiController@index |
 | `POST /api/products`, `PUT /api/products/{product}` | Api\ProductApiController |
+| `GET`, `POST /api/categories`, `PUT`, `DELETE /api/categories/{category}` | Api\CategoryApiController |
+| `GET /api/categories/options` (semua, untuk pilihan) | Api\CategoryApiController@options |
 | `GET /api/stock-in/history`, `POST /api/stock-in` | Api\StockInApiController |
 | `GET /api/report?date=` | Api\ReportApiController@index |
+
+### Satuan: pcs, kg, liter
+
+Beras dan minyak curah ditimbang di depan pembeli, jadi jumlahnya boleh pecahan.
+Supaya tetap tanpa angka desimal, **semua jumlah disimpan dalam langkah
+terkecil satuannya** — sama seperti `Money` menyimpan rupiah utuh:
+
+| Satuan | Disimpan sebagai | 1,52 kg / 0,25 liter / 3 pcs |
+| --- | --- | --- |
+| `pcs` | buah | `3` |
+| `kg` | gram | `1520` |
+| `liter` | ml | `250` |
+
+- `App\Domain\Shared\ValueObject\Unit` memegang semua aturannya: `scale()`,
+  `charge()` (pcs pas; barang timbang dibulatkan ke **Rp 100** terdekat),
+  `value()` (modal, dibulatkan ke rupiah), `itemCount()` (satu baris timbang =
+  1 barang), dan `format()` (`1520` → `1,52 kg`).
+- `resources/js/lib/units.js` adalah cerminannya di browser, supaya total di
+  keranjang sama persis dengan yang disimpan server.
+- Harga jual dan harga beli selalu **per satuan** (per kg, per liter).
+- **Satuan dikunci setelah produk dibuat** (`Product::updateDetails` menolak
+  ganti satuan). Karena itu baris `transactions` dan `stock_ins` cukup membaca
+  satuan dari produknya.
+- `transactions.cost_total` menyimpan modal per baris; laba = `total - cost_total`.
+- Ambang stok menipis dibaca dalam satuan produk: `5` = 5 pcs atau 5 kg.
+- Kontrak API: setiap `qty`/`stock` dikirim dalam langkah terkecil itu, beserta
+  `unit`-nya. Kasir mengirim `{"product_id": 7, "qty": 1520}` untuk 1,52 kg.
+
+### Lupa password
+
+Memakai *password broker* bawaan Laravel (tabel `password_reset_tokens`), bukan
+token buatan sendiri — token disimpan ter-hash, dicek umurnya, dan dihapus
+setelah dipakai.
+
+```
+/login → "Lupa password?" → /forgot-password (isi email)
+  → email berisi /change-password?token=…&email=…   (berlaku 10 menit, sekali pakai)
+  → isi password baru → kembali ke /login dengan pesan sukses
+```
+
+- `ForgotPasswordController` selalu menjawab sama — email terdaftar atau tidak,
+  atau terlalu sering diminta — supaya form tidak membocorkan email mana yang
+  punya akun. Gagal SMTP ditampilkan sebagai error di form.
+- `ChangePasswordController` mengganti password dan `remember_token`, jadi sesi
+  "ingat saya" di perangkat lain ikut tidak berlaku.
+- Email-nya `Infrastructure\Notification\ResetPasswordNotification` (bahasa
+  Indonesia), dipasang lewat `User::sendPasswordResetNotification()`.
+- Masa berlaku: `PASSWORD_RESET_EXPIRE` (menit, bawaan 10). Jeda minta ulang 60
+  detik per email; route dibatasi 5 permintaan/menit.
+- Pengiriman memakai mailer di `.env` (`MAIL_MAILER=smtp` + kredensial). Dengan
+  `log`, email hanya ditulis ke `storage/logs/laravel.log` — cukup untuk mencoba.
+
+### Kategori
+
+`Category` adalah aggregate sendiri. `Product` hanya menyimpan `categoryId`
+(antar-aggregate cukup saling merujuk lewat id), jadi mengganti nama kategori
+tidak perlu memuat produknya. Aturannya:
+
+- Nama kategori unik dan maksimal 50 huruf (`Category::rename`, `AddCategory`).
+- Produk wajib punya kategori yang ada: `Product::register/updateDetails`
+  menolak id kosong, use case menolak id yang tidak ada (`CategoryNotFound`).
+- Kategori yang masih dipakai tidak bisa dihapus (`DeleteCategory` →
+  `CategoryInUse`); foreign key `restrictOnDelete` jadi jaring pengaman kedua.
+- Kolom `products.category_id` sengaja nullable agar migrasi tidak gagal pada
+  data lama; `ProductCategorySeeder` mengisi produk lama, dan yang belum
+  berkategori tampil sebagai "Tanpa kategori" sampai diedit.
+
+```bash
+php artisan db:seed --class=ProductCategorySeeder   # kategori default + isi produk lama
+```
 
 API sengaja berada di grup `web`, bukan `routes/api.php`: sesi dan token CSRF-nya
 sama dengan halaman, jadi tidak perlu Sanctum atau token terpisah. Props dan

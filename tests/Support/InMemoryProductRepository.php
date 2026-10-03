@@ -56,4 +56,9 @@ final class InMemoryProductRepository implements ProductRepository
 
         return false;
     }
+
+    public function countInCategory(int $categoryId): int
+    {
+        return count(array_filter($this->products, fn (Product $product) => $product->categoryId() === $categoryId));
+    }
 }

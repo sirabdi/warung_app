@@ -10,7 +10,8 @@ class RecordStockInRequest extends FormRequest
     {
         return [
             'product_id' => ['required', 'integer', 'exists:products,id'],
-            'qty' => ['required', 'integer', 'min:1', 'max:1000000'],
+            // Pieces, or grams/ml for weighed goods (a 25 kg sack = 25000).
+            'qty' => ['required', 'integer', 'min:1', 'max:100000000'],
         ];
     }
 

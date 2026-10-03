@@ -7,6 +7,7 @@ use App\Domain\Sale\Entity\Sale;
 use App\Domain\Sale\Exception\EmptyCart;
 use App\Domain\Sale\ValueObject\SaleCode;
 use App\Domain\Shared\ValueObject\Money;
+use App\Domain\Shared\ValueObject\Unit;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
@@ -43,12 +44,27 @@ class SaleTest extends TestCase
         $sale->sell($coffee, 2);
 
         // The product's price goes up after the sale was recorded.
-        $coffee->updateDetails('Kopi', Money::of(3000), Money::of(1500));
+        $coffee->updateDetails('Kopi', 1, Money::of(3000), Money::of(1500));
 
         $item = $sale->items()[0];
         $this->assertSame(2000, $item->price->amount);
         $this->assertSame(1600, $item->grossProfit()->amount);
         $this->assertSame(4000, $sale->total()->amount);
+    }
+
+    public function test_weighed_goods_are_priced_by_weight(): void
+    {
+        $rice = Product::reconstitute(1, 'Beras', Money::of(14000), Money::of(12000), 25000, 1, Unit::Kilogram);
+        $coffee = Product::reconstitute(2, 'Kopi', Money::of(2000), Money::of(1200), 50);
+
+        $sale = $this->sale();
+        $sale->sell($rice, 1520);
+        $sale->sell($coffee, 3);
+
+        $this->assertSame(23480, $rice->stock());
+        $this->assertSame(21300 + 6000, $sale->total()->amount);
+        $this->assertSame(21300 - 18240, $sale->items()[0]->grossProfit()->amount);
+        $this->assertSame(4, $sale->itemCount(), '3 coffees + 1 weighed line');
     }
 
     public function test_an_empty_cart_cannot_be_completed(): void

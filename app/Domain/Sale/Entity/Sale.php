@@ -56,7 +56,7 @@ final class Sale
 
     public function itemCount(): int
     {
-        return array_sum(array_map(fn (SaleItem $item) => $item->qty, $this->items));
+        return array_sum(array_map(fn (SaleItem $item) => $item->itemCount(), $this->items));
     }
 
     public function code(): SaleCode

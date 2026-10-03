@@ -2,6 +2,8 @@
 
 namespace App\Application\Cashier\Query;
 
+use App\Application\Shared\Query\Page;
+
 /**
  * Read model for the cashier page. Kept separate from the repository because
  * the need differs: the till wants a ready-to-render list (already sorted by
@@ -10,9 +12,10 @@ namespace App\Application\Cashier\Query;
 interface ProductsForCashier
 {
     /**
-     * Best sellers first so they are the fastest to find.
+     * Best sellers of the last 30 days first so they are the fastest to find,
+     * optionally narrowed by part of the name and by category.
      *
-     * @return list<array{id: int, name: string, sell_price: int, stock: int}>
+     * @return Page<array{id: int, name: string, category_id: ?int, category_name: ?string, unit: string, sell_price: int, stock: int}>
      */
-    public function get(): array;
+    public function paginate(string $search, ?int $categoryId, int $page, int $perPage): Page;
 }

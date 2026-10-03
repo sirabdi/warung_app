@@ -24,4 +24,6 @@ interface ProductRepository
     public function save(Product $product): Product;
 
     public function nameExists(string $name, ?int $exceptId = null): bool;
+
+    public function countInCategory(int $categoryId): int;
 }

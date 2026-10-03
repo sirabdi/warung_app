@@ -20,6 +20,7 @@ final class EloquentSaleRepository implements SaleRepository
                 'qty' => $item->qty,
                 'price' => $item->price->amount,
                 'cost_price' => $item->costPrice->amount,
+                'cost_total' => $item->costTotal()->amount,
                 'total' => $item->total()->amount,
                 'sold_at' => $sale->soldAt(),
                 'user_id' => $sale->cashierId(),

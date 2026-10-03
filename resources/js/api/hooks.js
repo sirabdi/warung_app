@@ -1,13 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './client';
 import { toast } from '../toast';
+import { toQueryString } from '@/lib/url';
 
 export const keys = {
     cashierProducts: ['cashier', 'products'],
+    cashierProductPage: (params) => ['cashier', 'products', params],
     products: ['products'],
+    productPage: (params) => ['products', params],
+    categories: ['categories'],
+    categoryOptions: ['categories', 'options'],
+    categoryPage: (params) => ['categories', 'page', params],
     stockInHistory: ['stock-in', 'history'],
-    report: (date) => ['report', date],
+    stockInHistoryPage: (params) => ['stock-in', 'history', params],
+    report: (params) => ['report', params],
 };
+
+// Server-side pages: { data: [...], meta: { page, per_page, total, last_page } }.
+// The previous page stays on screen while the next one loads.
+const pageOptions = (initialData) => ({
+    initialData,
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+});
 
 // Shared options: page data comes from Inertia first, then stays fresh on its own.
 const listOptions = (initialData) => ({
@@ -16,41 +32,63 @@ const listOptions = (initialData) => ({
     refetchOnWindowFocus: true,
 });
 
-export function useCashierProducts(initialData) {
+// Exported so the till can fetch a search result right away on Enter.
+export const cashierProductsQuery = (params) => ({
+    queryKey: keys.cashierProductPage(params),
+    queryFn: ({ signal }) => apiFetch(`/cashier/products${toQueryString(params)}`, { signal }),
+    staleTime: 30_000,
+});
+
+export function useCashierProducts(params, initialData) {
+    return useQuery({ ...cashierProductsQuery(params), ...pageOptions(initialData) });
+}
+
+export function useProducts(params, initialData) {
     return useQuery({
-        queryKey: keys.cashierProducts,
-        queryFn: ({ signal }) => apiFetch('/cashier/products', { signal }).then((r) => r.products),
+        queryKey: keys.productPage(params),
+        queryFn: ({ signal }) => apiFetch(`/products${toQueryString(params)}`, { signal }),
+        ...pageOptions(initialData),
+    });
+}
+
+// Every category at once, for pickers and filters.
+export function useCategoryOptions(initialData) {
+    return useQuery({
+        queryKey: keys.categoryOptions,
+        queryFn: ({ signal }) => apiFetch('/categories/options', { signal }).then((r) => r.categories),
         ...listOptions(initialData),
     });
 }
 
-export function useProducts(initialData) {
+export function useCategoryPage(params, initialData) {
     return useQuery({
-        queryKey: keys.products,
-        queryFn: ({ signal }) => apiFetch('/products', { signal }).then((r) => r.products),
-        ...listOptions(initialData),
+        queryKey: keys.categoryPage(params),
+        queryFn: ({ signal }) => apiFetch(`/categories${toQueryString(params)}`, { signal }),
+        ...pageOptions(initialData),
     });
 }
 
-export function useStockInHistory(initialData) {
+export function useStockInHistory(params, initialData) {
     return useQuery({
-        queryKey: keys.stockInHistory,
-        queryFn: ({ signal }) => apiFetch('/stock-in/history', { signal }).then((r) => r.history),
-        ...listOptions(initialData),
+        queryKey: keys.stockInHistoryPage(params),
+        queryFn: ({ signal }) => apiFetch(`/stock-in/history${toQueryString(params)}`, { signal }),
+        ...pageOptions(initialData),
     });
 }
 
-export function useReport(date, initialData) {
+// params: { date, low_page, history_page }
+export function useReport(params, initialData) {
     return useQuery({
-        queryKey: keys.report(date),
-        queryFn: ({ signal }) => apiFetch(`/report?date=${date}`, { signal }),
+        queryKey: keys.report(params),
+        queryFn: ({ signal }) => apiFetch(`/report${toQueryString(params)}`, { signal }),
         initialData,
         placeholderData: (previous) => previous, // keep the old day on screen while loading
         staleTime: 15_000,
     });
 }
 
-// Anything that changes stock invalidates every list that shows stock.
+// Anything that changes stock invalidates every list that shows stock. The keys
+// are prefixes, so every cached page of a list is refreshed.
 function useStockChangingMutation(mutationFn, onDone) {
     const queryClient = useQueryClient();
 
@@ -60,6 +98,7 @@ function useStockChangingMutation(mutationFn, onDone) {
             toast(result.message);
             queryClient.invalidateQueries({ queryKey: keys.cashierProducts });
             queryClient.invalidateQueries({ queryKey: keys.products });
+            queryClient.invalidateQueries({ queryKey: keys.categories }); // product counts
             queryClient.invalidateQueries({ queryKey: keys.stockInHistory });
             queryClient.invalidateQueries({ queryKey: ['report'] });
             onDone?.(result, variables);
@@ -86,4 +125,33 @@ export function useSaveProduct(onDone) {
                 : apiFetch('/products', { method: 'POST', body: data }),
         onDone,
     );
+}
+
+// Categories don't touch stock, but product lists show category names.
+function useCategoryMutation(mutationFn, onDone) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn,
+        onSuccess: (result, variables) => {
+            toast(result.message);
+            queryClient.invalidateQueries({ queryKey: keys.categories });
+            queryClient.invalidateQueries({ queryKey: keys.products });
+            onDone?.(result, variables);
+        },
+    });
+}
+
+export function useSaveCategory(onDone) {
+    return useCategoryMutation(
+        ({ id, name }) =>
+            id
+                ? apiFetch(`/categories/${id}`, { method: 'PUT', body: { name } })
+                : apiFetch('/categories', { method: 'POST', body: { name } }),
+        onDone,
+    );
+}
+
+export function useDeleteCategory(onDone) {
+    return useCategoryMutation((id) => apiFetch(`/categories/${id}`, { method: 'DELETE' }), onDone);
 }

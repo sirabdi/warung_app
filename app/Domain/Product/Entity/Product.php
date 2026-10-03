@@ -5,12 +5,21 @@ namespace App\Domain\Product\Entity;
 use App\Domain\Product\Exception\InsufficientStock;
 use App\Domain\Shared\Exception\InvalidValue;
 use App\Domain\Shared\ValueObject\Money;
+use App\Domain\Shared\ValueObject\Unit;
 
 /**
  * Product aggregate root.
  *
  * Every stock change must go through addStock()/reduceStock(), so there is no
  * shortcut that can make stock negative or change it without a reason.
+ *
+ * The category is held by id only (another aggregate). Rows created before
+ * categories existed may still have none, but every save through
+ * register()/updateDetails() must name one.
+ *
+ * Stock and every quantity are whole steps of the unit (pieces, grams or ml),
+ * and the unit is fixed once the product exists: switching 10 pcs to grams
+ * would silently turn 10 bags of rice into 10 grams.
  */
 final class Product
 {
@@ -20,12 +29,21 @@ final class Product
         private Money $sellPrice,
         private Money $costPrice,
         private int $stock,
+        private ?int $categoryId = null,
+        private Unit $unit = Unit::Piece,
     ) {}
 
-    public static function register(string $name, Money $sellPrice, ?Money $costPrice = null, int $initialStock = 0): self
-    {
-        $product = new self(null, '', $sellPrice, $costPrice ?? Money::zero(), 0);
+    public static function register(
+        string $name,
+        int $categoryId,
+        Money $sellPrice,
+        ?Money $costPrice = null,
+        int $initialStock = 0,
+        Unit $unit = Unit::Piece,
+    ): self {
+        $product = new self(null, '', $sellPrice, $costPrice ?? Money::zero(), 0, null, $unit);
         $product->renameTo($name);
+        $product->moveToCategory($categoryId);
 
         if ($initialStock > 0) {
             $product->addStock($initialStock);
@@ -35,14 +53,31 @@ final class Product
     }
 
     /** Used by repositories to rebuild a product from the database. */
-    public static function reconstitute(int $id, string $name, Money $sellPrice, Money $costPrice, int $stock): self
-    {
-        return new self($id, $name, $sellPrice, $costPrice, $stock);
+    public static function reconstitute(
+        int $id,
+        string $name,
+        Money $sellPrice,
+        Money $costPrice,
+        int $stock,
+        ?int $categoryId = null,
+        Unit $unit = Unit::Piece,
+    ): self {
+        return new self($id, $name, $sellPrice, $costPrice, $stock, $categoryId, $unit);
     }
 
-    public function updateDetails(string $name, Money $sellPrice, ?Money $costPrice = null): void
-    {
+    public function updateDetails(
+        string $name,
+        int $categoryId,
+        Money $sellPrice,
+        ?Money $costPrice = null,
+        ?Unit $unit = null,
+    ): void {
+        if ($unit !== null && $unit !== $this->unit) {
+            throw new InvalidValue('Satuan tidak bisa diganti setelah produk dibuat. Buat produk baru untuk satuan lain.', 'unit');
+        }
+
         $this->renameTo($name);
+        $this->moveToCategory($categoryId);
         $this->sellPrice = $sellPrice;
         $this->costPrice = $costPrice ?? Money::zero();
     }
@@ -59,15 +94,16 @@ final class Product
         $this->assertPositiveQty($qty);
 
         if ($qty > $this->stock) {
-            throw InsufficientStock::for($this->name, $this->stock);
+            throw InsufficientStock::for($this->name, $this->unit->format($this->stock));
         }
 
         $this->stock -= $qty;
     }
 
+    /** $threshold is in display units: 5 means 5 pcs, or 5 kg for rice. */
     public function isLowStock(int $threshold): bool
     {
-        return $this->stock <= $threshold;
+        return $this->stock <= $threshold * $this->unit->scale();
     }
 
     public function id(): ?int
@@ -106,6 +142,16 @@ final class Product
         return $this->stock;
     }
 
+    public function unit(): Unit
+    {
+        return $this->unit;
+    }
+
+    public function categoryId(): ?int
+    {
+        return $this->categoryId;
+    }
+
     private function renameTo(string $name): void
     {
         $name = trim($name);
@@ -119,6 +165,15 @@ final class Product
         }
 
         $this->name = $name;
+    }
+
+    private function moveToCategory(int $categoryId): void
+    {
+        if ($categoryId < 1) {
+            throw new InvalidValue('Kategori wajib dipilih.', 'category_id');
+        }
+
+        $this->categoryId = $categoryId;
     }
 
     private function assertPositiveQty(int $qty): void

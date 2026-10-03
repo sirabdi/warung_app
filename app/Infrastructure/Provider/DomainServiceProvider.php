@@ -3,20 +3,24 @@
 namespace App\Infrastructure\Provider;
 
 use App\Application\Cashier\Query\ProductsForCashier;
+use App\Application\Category\Query\CategoryList;
 use App\Application\Inventory\Query\StockInHistory;
 use App\Application\Product\Query\ProductList;
 use App\Application\Report\Query\DailyReportQuery;
 use App\Application\Shared\Clock;
 use App\Application\Shared\TransactionManager;
+use App\Domain\Category\Repository\CategoryRepository;
 use App\Domain\Inventory\Repository\StockInRepository;
 use App\Domain\Product\Repository\ProductRepository;
 use App\Domain\Sale\Repository\SaleRepository;
 use App\Infrastructure\Clock\SystemClock;
 use App\Infrastructure\Persistence\Eloquent\EloquentTransactionManager;
+use App\Infrastructure\Persistence\Eloquent\Query\EloquentCategoryList;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentDailyReportQuery;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentProductList;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentProductsForCashier;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentStockInHistory;
+use App\Infrastructure\Persistence\Eloquent\Repository\EloquentCategoryRepository;
 use App\Infrastructure\Persistence\Eloquent\Repository\EloquentProductRepository;
 use App\Infrastructure\Persistence\Eloquent\Repository\EloquentSaleRepository;
 use App\Infrastructure\Persistence\Eloquent\Repository\EloquentStockInRepository;
@@ -33,12 +37,14 @@ class DomainServiceProvider extends ServiceProvider
     public array $bindings = [
         // Repositories (write side)
         ProductRepository::class => EloquentProductRepository::class,
+        CategoryRepository::class => EloquentCategoryRepository::class,
         SaleRepository::class => EloquentSaleRepository::class,
         StockInRepository::class => EloquentStockInRepository::class,
 
         // Read models (read side)
         ProductsForCashier::class => EloquentProductsForCashier::class,
         ProductList::class => EloquentProductList::class,
+        CategoryList::class => EloquentCategoryList::class,
         StockInHistory::class => EloquentStockInHistory::class,
         DailyReportQuery::class => EloquentDailyReportQuery::class,
 

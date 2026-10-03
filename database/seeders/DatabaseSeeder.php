@@ -37,5 +37,11 @@ class DatabaseSeeder extends Seeder
                 Product::create($sample);
             }
         }
+
+        // Default categories in every environment; sample products get theirs.
+        $this->call(ProductCategorySeeder::class);
+
+        // Rice and bulk oil are weighed at the counter, not sold per bag.
+        $this->call(WeighedProductSeeder::class);
     }
 }

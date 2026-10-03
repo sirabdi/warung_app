@@ -1,116 +1,164 @@
 import { Link } from '@inertiajs/react';
-import { useState } from 'react';
-import Layout from '../Components/Layout';
-import { useReport } from '../api/hooks';
-import { formatNumber, formatRupiah } from '../lib';
+import { ArrowRight, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import DataPagination from '@/components/DataPagination';
+import Layout from '@/components/Layout';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { useReport } from '@/api/hooks';
+import { formatNumber, formatRupiah } from '@/lib/format';
+import { formatQty, isMeasured } from '@/lib/units';
+import { replaceUrl } from '@/lib/url';
+import { cn } from '@/lib/utils';
 
-function Card({ label, value, sub, color = 'text-stone-900' }) {
+function StatCard({ label, value, sub, className }) {
     return (
-        <div className="card p-4">
-            <div className="text-sm text-stone-500">{label}</div>
-            <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            {sub && <div className="text-xs text-stone-400">{sub}</div>}
-        </div>
+        <Card className="gap-1 px-4 py-4">
+            <CardDescription>{label}</CardDescription>
+            <div className={cn('text-2xl font-bold tabular-nums', className)}>{value}</div>
+            {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+        </Card>
     );
 }
 
 export default function Report({ date: initialDate, isToday, summary, bestSellers, lowStock, lowStockThreshold, history }) {
     const initial = { date: initialDate, isToday, summary, bestSellers, lowStock, lowStockThreshold, history };
-    const [date, setDate] = useState(initialDate);
+    const initialParams = { date: initialDate, low_page: lowStock.meta.page, history_page: history.meta.page };
+    const [params, setParams] = useState(initialParams);
+    const set = (changes) => setParams((current) => ({ ...current, ...changes }));
 
-    // Switching day is a fetch, not a page load: the old numbers stay on screen
-    // until the new ones arrive, and each day is cached.
-    const { data: report, isFetching } = useReport(date, date === initialDate ? initial : undefined);
+    // Switching day or page is a fetch, not a page load: the old numbers stay on
+    // screen until the new ones arrive, and each combination is cached.
+    const isInitial = Object.keys(initialParams).every((key) => params[key] === initialParams[key]);
+    const { data: report, isFetching } = useReport(params, isInitial ? initial : undefined);
 
-    const changeDate = (value) => {
-        setDate(value);
-        window.history.replaceState({}, '', value ? `/report?date=${value}` : '/report');
-    };
+    useEffect(() => {
+        replaceUrl('/report', {
+            date: params.date,
+            low_page: params.low_page > 1 ? params.low_page : '',
+            history_page: params.history_page > 1 ? params.history_page : '',
+        });
+    }, [params]);
 
-    const maxQty = Math.max(1, ...report.bestSellers.map((item) => item.qty));
+    // Another day has other sales, so its list starts at page 1 again.
+    const changeDate = (value) => set({ date: value, history_page: 1 });
+
+    // Ranked by revenue: 3 pcs and 1,5 kg cannot be compared by quantity.
+    const maxRevenue = Math.max(1, ...report.bestSellers.map((item) => item.revenue));
 
     return (
         <Layout title="Laporan">
             <div className="mb-3 flex items-center gap-2">
                 <h1 className="flex-1 text-xl font-bold">{report.isToday ? 'Hari ini' : 'Laporan'}</h1>
-                {isFetching && <span className="text-sm text-stone-400">memuat…</span>}
-                <input type="date" className="input w-auto" value={date} onChange={(e) => changeDate(e.target.value)} />
+                {isFetching && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                <Input type="date" className="w-auto" value={params.date} onChange={(e) => changeDate(e.target.value)} />
             </div>
 
-            <div className={`transition-opacity ${isFetching ? 'opacity-60' : ''}`}>
+            <div className={cn('transition-opacity', isFetching && 'opacity-60')}>
                 <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-                    <Card label="Penjualan" value={formatRupiah(report.summary.revenue)} color="text-emerald-700" />
-                    <Card label="Laba kotor" value={formatRupiah(report.summary.profit)} sub="jual − harga beli" />
-                    <Card
+                    <StatCard label="Penjualan" value={formatRupiah(report.summary.revenue)} className="text-primary" />
+                    <StatCard label="Laba kotor" value={formatRupiah(report.summary.profit)} sub="jual − harga beli" />
+                    <StatCard
                         label="Transaksi"
                         value={formatNumber(report.summary.sales)}
                         sub={`${formatNumber(report.summary.items)} item terjual`}
                     />
-                    <Card
+                    <StatCard
                         label="Stok menipis"
-                        value={formatNumber(report.lowStock.length)}
+                        value={formatNumber(report.lowStock.meta.total)}
                         sub={`sisa ≤ ${report.lowStockThreshold}`}
-                        color={report.lowStock.length ? 'text-red-600' : 'text-stone-900'}
+                        className={cn(report.lowStock.meta.total > 0 && 'text-destructive')}
                     />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                    <section className="card p-4">
-                        <h2 className="mb-3 font-bold">Produk terlaris</h2>
-                        {report.bestSellers.length === 0 && <p className="text-stone-400">Belum ada penjualan.</p>}
-                        <div className="space-y-2">
+                    <Card className="gap-3 py-4">
+                        <CardHeader className="px-4">
+                            <CardTitle>Produk terlaris</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 px-4">
+                            {report.bestSellers.length === 0 && (
+                                <Empty className="p-2">
+                                    <EmptyDescription>Belum ada penjualan.</EmptyDescription>
+                                </Empty>
+                            )}
                             {report.bestSellers.map((item) => (
-                                <div key={item.name}>
-                                    <div className="flex justify-between text-sm">
+                                <div key={item.name} className="space-y-1">
+                                    <div className="flex justify-between gap-2 text-sm">
                                         <span className="truncate font-medium">{item.name}</span>
-                                        <span className="shrink-0 text-stone-500">
-                                            {item.qty}× · {formatRupiah(item.revenue)}
+                                        <span className="shrink-0 text-muted-foreground">
+                                            {isMeasured(item.unit) ? formatQty(item.qty, item.unit) : `${item.qty}×`} ·{' '}
+                                            {formatRupiah(item.revenue)}
                                         </span>
                                     </div>
-                                    <div className="mt-1 h-2 rounded-full bg-stone-100">
-                                        <div
-                                            className="h-2 rounded-full bg-emerald-600"
-                                            style={{ width: `${(item.qty / maxQty) * 100}%` }}
-                                        />
-                                    </div>
+                                    <Progress value={(item.revenue / maxRevenue) * 100} />
                                 </div>
                             ))}
-                        </div>
-                    </section>
+                        </CardContent>
+                    </Card>
 
-                    <section className="card p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                            <h2 className="font-bold">Stok menipis</h2>
-                            <Link href="/stock-in" className="text-sm font-medium text-emerald-700">
-                                Catat masuk →
-                            </Link>
-                        </div>
-                        {report.lowStock.length === 0 && <p className="text-stone-400">Aman, tidak ada yang menipis.</p>}
-                        <div className="divide-y divide-stone-100">
-                            {report.lowStock.map((product) => (
-                                <div key={product.id} className="flex items-center justify-between py-2">
+                    <Card className="gap-3 py-4">
+                        <CardHeader className="px-4">
+                            <CardTitle>Stok menipis</CardTitle>
+                            <CardAction>
+                                <Button asChild variant="link" size="sm" className="h-auto p-0">
+                                    <Link href="/stock-in">
+                                        Catat masuk
+                                        <ArrowRight />
+                                    </Link>
+                                </Button>
+                            </CardAction>
+                        </CardHeader>
+                        <CardContent className="divide-y px-4">
+                            {report.lowStock.data.length === 0 && (
+                                <Empty className="p-2">
+                                    <EmptyDescription>Aman, tidak ada yang menipis.</EmptyDescription>
+                                </Empty>
+                            )}
+                            {report.lowStock.data.map((product) => (
+                                <div key={product.id} className="flex items-center justify-between gap-2 py-2">
                                     <span className="truncate">{product.name}</span>
-                                    <span className={`font-bold ${product.stock <= 0 ? 'text-red-600' : 'text-amber-600'}`}>
-                                        {product.stock <= 0 ? 'habis' : `sisa ${product.stock}`}
-                                    </span>
+                                    <Badge variant={product.stock <= 0 ? 'destructive' : 'warning'}>
+                                        {product.stock <= 0 ? 'habis' : `sisa ${formatQty(product.stock, product.unit)}`}
+                                    </Badge>
                                 </div>
                             ))}
-                        </div>
-                    </section>
+                            <DataPagination
+                                className="mt-0 pt-3"
+                                meta={report.lowStock.meta}
+                                onPageChange={(page) => set({ low_page: page })}
+                            />
+                        </CardContent>
+                    </Card>
 
-                    <section className="card p-4 md:col-span-2">
-                        <h2 className="mb-2 font-bold">Transaksi {report.isToday ? 'hari ini' : 'pada tanggal ini'}</h2>
-                        {report.history.length === 0 && <p className="text-stone-400">Belum ada transaksi.</p>}
-                        <div className="divide-y divide-stone-100">
-                            {report.history.map((sale) => (
+                    <Card className="gap-3 py-4 md:col-span-2">
+                        <CardHeader className="px-4">
+                            <CardTitle>Transaksi {report.isToday ? 'hari ini' : 'pada tanggal ini'}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="divide-y px-4">
+                            {report.history.data.length === 0 && (
+                                <Empty className="p-2">
+                                    <EmptyDescription>Belum ada transaksi.</EmptyDescription>
+                                </Empty>
+                            )}
+                            {report.history.data.map((sale) => (
                                 <div key={sale.code} className="flex items-center gap-3 py-2">
-                                    <span className="w-12 text-sm text-stone-500">{sale.time}</span>
-                                    <span className="flex-1 text-sm text-stone-400">{sale.items} item</span>
-                                    <span className="font-semibold">{formatRupiah(sale.total)}</span>
+                                    <span className="w-12 text-sm text-muted-foreground tabular-nums">{sale.time}</span>
+                                    <span className="flex-1 text-sm text-muted-foreground">{sale.items} item</span>
+                                    <span className="font-semibold tabular-nums">{formatRupiah(sale.total)}</span>
                                 </div>
                             ))}
-                        </div>
-                    </section>
+                            <DataPagination
+                                className="mt-0 pt-3"
+                                meta={report.history.meta}
+                                onPageChange={(page) => set({ history_page: page })}
+                            />
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </Layout>

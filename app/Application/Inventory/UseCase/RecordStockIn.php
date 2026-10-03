@@ -27,7 +27,7 @@ final readonly class RecordStockIn
             $this->stockIns->save(StockIn::record($product, $qty, $this->clock->today(), $recordedBy));
             $this->products->save($product);
 
-            return new StockInResult($product->name(), $qty, $product->stock());
+            return new StockInResult($product->name(), $qty, $product->stock(), $product->unit());
         });
     }
 }

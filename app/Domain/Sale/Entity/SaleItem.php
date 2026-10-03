@@ -4,12 +4,15 @@ namespace App\Domain\Sale\Entity;
 
 use App\Domain\Product\Entity\Product;
 use App\Domain\Shared\ValueObject\Money;
+use App\Domain\Shared\ValueObject\Unit;
 
 /**
  * One product within one sale.
  *
  * Sell price and cost price are copied here (instead of being read from the
  * product later) so past reports do not change when a price is edited.
+ *
+ * $qty is in steps of the unit (pieces, grams or ml); prices are per unit.
  */
 final readonly class SaleItem
 {
@@ -17,6 +20,7 @@ final readonly class SaleItem
         public int $productId,
         public string $productName,
         public int $qty,
+        public Unit $unit,
         public Money $price,
         public Money $costPrice,
     ) {}
@@ -27,6 +31,7 @@ final readonly class SaleItem
             $product->storedId(),
             $product->name(),
             $qty,
+            $product->unit(),
             $product->sellPrice(),
             $product->costPrice(),
         );
@@ -34,11 +39,21 @@ final readonly class SaleItem
 
     public function total(): Money
     {
-        return $this->price->times($this->qty);
+        return $this->unit->charge($this->price, $this->qty);
+    }
+
+    public function costTotal(): Money
+    {
+        return $this->unit->value($this->costPrice, $this->qty);
     }
 
     public function grossProfit(): Money
     {
-        return $this->total()->minus($this->costPrice->times($this->qty));
+        return $this->total()->minus($this->costTotal());
+    }
+
+    public function itemCount(): int
+    {
+        return $this->unit->itemCount($this->qty);
     }
 }

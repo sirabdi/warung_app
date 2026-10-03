@@ -1,33 +1,76 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/quicksand';
 
 @source '../**/*.blade.php';
 @source '../**/*.jsx';
 
-@theme {
-    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+@custom-variant dark (&:is(.dark *));
+
+/* Token shadcn/ui. Primer = hijau zamrud warung, netral = stone.
+   Sudut maksimal 4px: semua ukuran rounded-* di bawah dikunci ke --radius. */
+:root {
+    --radius: 4px;
+    --background: oklch(0.97 0.001 106.424);
+    --foreground: oklch(0.147 0.004 49.25);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.147 0.004 49.25);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.147 0.004 49.25);
+    --primary: oklch(0.508 0.118 165.612);
+    --primary-foreground: oklch(0.985 0.001 106.423);
+    --secondary: oklch(0.923 0.003 48.717);
+    --secondary-foreground: oklch(0.216 0.006 56.043);
+    --muted: oklch(0.97 0.001 106.424);
+    --muted-foreground: oklch(0.553 0.013 58.071);
+    --accent: oklch(0.95 0.052 163.051);
+    --accent-foreground: oklch(0.378 0.077 168.94);
+    --destructive: oklch(0.577 0.245 27.325);
+    --warning: oklch(0.666 0.179 58.318);
+    --border: oklch(0.923 0.003 48.717);
+    --input: oklch(0.869 0.005 56.366);
+    --ring: oklch(0.596 0.145 163.225);
 }
 
-body {
-    @apply bg-stone-100 text-stone-900;
-    -webkit-tap-highlight-color: transparent;
+@theme inline {
+    --font-sans: 'Quicksand Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Quicksand Variable', ui-monospace, monospace;
+    --radius-xs: calc(var(--radius) / 2);
+    --radius-sm: calc(var(--radius) / 2);
+    --radius-md: var(--radius);
+    --radius-lg: var(--radius);
+    --radius-xl: var(--radius);
+    --radius-2xl: var(--radius);
+    --radius-3xl: var(--radius);
+    --radius-4xl: var(--radius);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-warning: var(--warning);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
 }
 
-@utility input {
-    @apply w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-base outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20;
-}
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
 
-@utility btn {
-    @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2.5 text-base font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
-}
-
-@utility btn-primary {
-    @apply btn bg-emerald-700 text-white hover:bg-emerald-800;
-}
-
-@utility btn-ghost {
-    @apply btn bg-white text-stone-700 ring-1 ring-stone-300 hover:bg-stone-50;
-}
-
-@utility card {
-    @apply rounded-xl bg-white ring-1 ring-stone-200;
+    body {
+        @apply bg-background text-foreground;
+        -webkit-tap-highlight-color: transparent;
+    }
 }

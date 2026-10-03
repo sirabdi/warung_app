@@ -6,14 +6,19 @@ use App\Application\Product\Query\ProductList;
 use App\Application\Product\UseCase\AddProduct;
 use App\Application\Product\UseCase\UpdateProduct;
 use App\Presentation\Http\Controllers\Controller;
+use App\Presentation\Http\Requests\ProductListRequest;
 use App\Presentation\Http\Requests\SaveProductRequest;
 use Illuminate\Http\JsonResponse;
 
 class ProductApiController extends Controller
 {
-    public function index(ProductList $products): JsonResponse
+    public function index(ProductListRequest $request, ProductList $products): JsonResponse
     {
-        return response()->json(['products' => $products->all()]);
+        return response()->json(
+            $products
+                ->paginate($request->search(), $request->page(), $request->perPage(), $request->categoryId())
+                ->toArray(),
+        );
     }
 
     public function store(SaveProductRequest $request, AddProduct $addProduct): JsonResponse

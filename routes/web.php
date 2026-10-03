@@ -1,11 +1,15 @@
 <?php
 
 use App\Presentation\Http\Controllers\Api\CashierApiController;
+use App\Presentation\Http\Controllers\Api\CategoryApiController;
 use App\Presentation\Http\Controllers\Api\ProductApiController;
 use App\Presentation\Http\Controllers\Api\ReportApiController;
 use App\Presentation\Http\Controllers\Api\StockInApiController;
+use App\Presentation\Http\Controllers\Auth\ChangePasswordController;
+use App\Presentation\Http\Controllers\Auth\ForgotPasswordController;
 use App\Presentation\Http\Controllers\Auth\LoginController;
 use App\Presentation\Http\Controllers\CashierController;
+use App\Presentation\Http\Controllers\CategoryController;
 use App\Presentation\Http\Controllers\ProductController;
 use App\Presentation\Http\Controllers\ReportController;
 use App\Presentation\Http\Controllers\StockInController;
@@ -14,6 +18,12 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:10,1');
+
+    // Forgot password: email a link, the link opens /change-password?token=…
+    Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/change-password', [ChangePasswordController::class, 'create'])->name('password.reset');
+    Route::post('/change-password', [ChangePasswordController::class, 'store'])->middleware('throttle:10,1')->name('password.update');
 });
 
 Route::middleware('auth')->group(function () {
@@ -22,6 +32,7 @@ Route::middleware('auth')->group(function () {
     // Inertia page shells. They also hand the first payload to TanStack Query.
     Route::get('/', [CashierController::class, 'index'])->name('cashier');
     Route::get('/products', [ProductController::class, 'index'])->name('products');
+    Route::get('/categories', [CategoryController::class, 'index'])->name('categories');
     Route::get('/stock-in', [StockInController::class, 'index'])->name('stock-in');
     Route::get('/report', [ReportController::class, 'index'])->name('report');
 
@@ -34,6 +45,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/products', [ProductApiController::class, 'index'])->name('products');
         Route::post('/products', [ProductApiController::class, 'store'])->name('products.store');
         Route::put('/products/{product}', [ProductApiController::class, 'update'])->name('products.update')->whereNumber('product');
+
+        Route::get('/categories', [CategoryApiController::class, 'index'])->name('categories');
+        Route::get('/categories/options', [CategoryApiController::class, 'options'])->name('categories.options');
+        Route::post('/categories', [CategoryApiController::class, 'store'])->name('categories.store');
+        Route::put('/categories/{category}', [CategoryApiController::class, 'update'])->name('categories.update')->whereNumber('category');
+        Route::delete('/categories/{category}', [CategoryApiController::class, 'destroy'])->name('categories.destroy')->whereNumber('category');
 
         Route::get('/stock-in/history', [StockInApiController::class, 'index'])->name('stock-in.history');
         Route::post('/stock-in', [StockInApiController::class, 'store'])->name('stock-in.store');
