@@ -1,7 +1,7 @@
 import './bootstrap';
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
@@ -22,10 +22,23 @@ const queryClient = new QueryClient({
     },
 });
 
+// Logout and login are Inertia visits, not page loads, so the cache would carry
+// one store's data into the next account. Drop it once the signed-in user is gone
+// or replaced; at that point no page that reads it is on screen.
+let currentUserId;
+router.on('navigate', (event) => {
+    const userId = event.detail.page.props.auth?.user?.id ?? null;
+    if (currentUserId != null && userId !== currentUserId) {
+        queryClient.clear();
+    }
+    currentUserId = userId;
+});
+
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./Pages/${name}.jsx`, import.meta.glob('./Pages/**/*.jsx')),
     setup({ el, App, props }) {
+        currentUserId = props.initialPage.props.auth?.user?.id ?? null;
         createRoot(el).render(
             <QueryClientProvider client={queryClient}>
                 <App {...props} />

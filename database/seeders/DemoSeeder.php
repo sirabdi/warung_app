@@ -31,6 +31,8 @@ use RuntimeException;
  */
 class DemoSeeder extends Seeder
 {
+    use UsesOwnerStore;
+
     /**
      * [name, category, unit, sell price, cost price, stock in display units].
      * Prices of kg/liter goods are per kg/liter. A few start low on purpose so
@@ -164,6 +166,7 @@ class DemoSeeder extends Seeder
             throw new RuntimeException('DemoSeeder hanya untuk lokal: datanya palsu.');
         }
 
+        $this->useOwnerStore();
         $this->call(CategorySeeder::class);
 
         $this->seedProducts();

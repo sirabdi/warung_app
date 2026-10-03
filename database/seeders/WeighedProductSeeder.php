@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 class WeighedProductSeeder extends Seeder
 {
+    use UsesOwnerStore;
+
     /** Old packaged name => [new name, unit]. One old piece = one new unit. */
     public const CONVERSIONS = [
         'Beras 1kg' => ['Beras', Unit::Kilogram],
@@ -28,6 +30,8 @@ class WeighedProductSeeder extends Seeder
 
     public function run(): void
     {
+        $this->useOwnerStore();
+
         foreach (self::CONVERSIONS as $oldName => [$newName, $unit]) {
             $product = Product::where('name', $oldName)->where('unit', Unit::Piece->value)->first();
 

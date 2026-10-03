@@ -32,7 +32,9 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('cashier'));
+        return $request->user()->isAdmin()
+            ? redirect()->route('admin.dashboard')
+            : redirect()->intended(route('cashier'));
     }
 
     public function destroy(Request $request): RedirectResponse

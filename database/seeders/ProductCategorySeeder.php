@@ -13,6 +13,8 @@ use Illuminate\Database\Seeder;
  */
 class ProductCategorySeeder extends Seeder
 {
+    use UsesOwnerStore;
+
     /** Product name => default category. */
     public const MAP = [
         'Indomie Goreng' => CategorySeeder::SEMBAKO,
@@ -31,6 +33,7 @@ class ProductCategorySeeder extends Seeder
 
     public function run(): void
     {
+        $this->useOwnerStore();
         $this->call(CategorySeeder::class);
 
         $categoryIds = Category::pluck('id', 'name');

@@ -16,6 +16,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Presentation\Http\Middleware\HandleInertiaRequests::class,
         ]);
+
+        $middleware->alias([
+            'subscribed' => \App\Presentation\Http\Middleware\EnsureSubscriptionActive::class,
+            'store' => \App\Presentation\Http\Middleware\EnsureStoreOwner::class,
+            'admin' => \App\Presentation\Http\Middleware\EnsureAdmin::class,
+        ]);
+
+        // Payment gateways post here from their servers, without our CSRF token;
+        // each webhook checks the gateway's own secret instead.
+        $middleware->validateCsrfTokens(except: ['webhooks/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Business rule violations (not enough stock, duplicate name, …) surface

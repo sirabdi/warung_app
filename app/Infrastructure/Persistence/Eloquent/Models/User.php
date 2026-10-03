@@ -6,6 +6,7 @@ namespace App\Infrastructure\Persistence\Eloquent\Models;
 use App\Infrastructure\Notification\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -20,6 +21,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'store_id',
         'name',
         'email',
         'password',
@@ -45,7 +47,20 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'store_id' => 'integer',
+            'is_admin' => 'boolean',
         ];
+    }
+
+    /** The app owner: sees every store in /admin, runs none. Set with `php artisan admin:create`. */
+    public function isAdmin(): bool
+    {
+        return $this->is_admin === true;
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     /** Indonesian email that links to /change-password instead of Laravel's default. */

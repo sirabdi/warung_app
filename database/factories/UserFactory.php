@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Infrastructure\Persistence\Eloquent\Models\Store;
 use App\Infrastructure\Persistence\Eloquent\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,7 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
+            'store_id' => Store::factory(),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),

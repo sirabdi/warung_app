@@ -174,6 +174,26 @@ pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
 | `GET /categories` | CategoryController@index | `Categories` |
 | `GET /stock-in` | StockInController@index | `StockIn` |
 | `GET /report` | ReportController@index | `Report` |
+| `GET /register` (+ `POST /register/code`, `/register/verify`, `/register/restart`, `/register`) | Auth\RegisterController | `Register` |
+| `GET /subscription`, `POST /subscription/checkout` | SubscriptionController | `Subscription` |
+| `GET /subscription/finish/{payment}` | SubscriptionController@finish | `PaymentFinish` |
+| `GET /subscription/expired` | SubscriptionController@expired | `SubscriptionExpired` |
+| `GET`, `POST /pay/simulate/{payment}` (hanya `PAYMENT_DRIVER=fake`) | Payment\PaymentSimulationController | `PaymentSimulation` |
+| `POST /webhooks/xendit/invoice` (dari server Xendit) | Payment\XenditWebhookController | — |
+| `GET /admin?status=&search=&page=` | Admin\DashboardController | `Admin/Dashboard` |
+
+Halaman toko (kasir, produk, kategori, stok, laporan) dan seluruh `/api/*`
+memakai middleware `auth` + `subscribed`. `/subscription*` hanya `auth`, karena
+toko yang belum bayar atau sudah habis justru harus bisa membukanya.
+Keduanya juga memakai middleware `store`: admin tidak punya toko, jadi ia
+dialihkan ke `/admin` (API menjawab 403).
+
+`/admin` memakai `auth` + `admin` (`users.is_admin`). Datanya dari read model
+`StoreDirectory`, yang membaca `stores` dan `payments` lintas toko — aman karena
+kedua model itu memang tidak memakai `BelongsToStore`. Halaman ini memakai
+partial reload Inertia (`only: ['stores', 'filters']`), bukan TanStack Query,
+karena hanya dibaca dan tidak ada mutasi. Login admin dibuat dengan
+`php artisan admin:create <email>`; seeder membuat `admin@example.com` di lokal.
 
 | API JSON (TanStack Query) | Controller |
 | --- | --- |
@@ -243,7 +263,7 @@ setelah dipakai.
 (antar-aggregate cukup saling merujuk lewat id), jadi mengganti nama kategori
 tidak perlu memuat produknya. Aturannya:
 
-- Nama kategori unik dan maksimal 50 huruf (`Category::rename`, `AddCategory`).
+- Nama kategori unik per toko dan maksimal 50 huruf (`Category::rename`, `AddCategory`).
 - Produk wajib punya kategori yang ada: `Product::register/updateDetails`
   menolak id kosong, use case menolak id yang tidak ada (`CategoryNotFound`).
 - Kategori yang masih dipakai tidak bisa dihapus (`DeleteCategory` →
@@ -255,6 +275,119 @@ tidak perlu memuat produknya. Aturannya:
 ```bash
 php artisan db:seed --class=ProductCategorySeeder   # kategori default + isi produk lama
 ```
+
+### Multi-toko
+
+Satu database untuk semua pelanggan; setiap baris `categories`, `products`,
+`transactions`, `stock_ins`, dan `users` punya `store_id`. Satu toko = satu login.
+
+Pemisahan datanya ada di satu tempat: trait `Infrastructure\Tenancy\BelongsToStore`
+di keempat model data toko.
+
+- Setiap query otomatis diberi `where store_id = <toko aktif>` (global scope).
+  Karena dipasang di model, repository, read model, dan relasi seperti
+  `withCount`/`withSum` ikut terlindungi tanpa perlu tahu.
+- Baris baru otomatis mendapat `store_id` toko aktif.
+- Toko aktif = `CurrentStore`: toko milik user yang login, atau yang dipilih
+  lewat `set()`/`as()` (seeder, pendaftaran).
+- **Request web tanpa toko tidak melihat apa pun** (`1 = 0`). Hanya console
+  (seeder, migrasi, perintah terjadwal) yang boleh melintasi toko.
+- Domain dan use case tidak tahu soal toko sama sekali.
+
+Yang di luar Eloquent harus dibatasi sendiri. Contohnya aturan validasi
+`exists:products,id`, yang membaca tabel langsung, diganti dengan
+`Rule::exists(...)->where('store_id', …)`. Kalau menulis query mentah
+(`DB::table`) untuk data toko, filter `store_id` wajib ditulis manual.
+
+Migrasi `2026_10_04_000002` menjadikan data lama sebagai **toko #1** dengan
+langganan sampai 2099 (toko milik pemilik aplikasi, bukan pelanggan).
+`DatabaseSeeder` melakukan hal yang sama pada database kosong.
+
+### Pendaftaran & langganan
+
+```
+/login → "Daftar sekarang" → /register
+  1. Email → kode 6 angka dikirim ke email → kode diisi (berlaku 10 menit, 5x salah)
+  2. Nama pemilik, no. telepon, nama & alamat toko, password
+     → toko + akun + 11 kategori bawaan dibuat, langsung login
+  3. /subscription: pilih paket
+  4. Bayar di halaman gateway → webhook → langganan aktif → kasir terbuka
+```
+
+| Paket | Harga |
+| --- | --- |
+| 1 bulan | Rp 35.000 |
+| 3 bulan | Rp 99.000 |
+| 9 bulan | Rp 279.000 |
+| 1 tahun | Rp 349.000 (pilihan bawaan) |
+| 2 tahun | Rp 599.000 |
+
+Harga ada di `Domain\Subscription\ValueObject\Plan`. Mengubahnya hanya
+berlaku untuk tagihan baru, karena setiap `Payment` menyimpan nominalnya sendiri.
+
+**Status toko** (`Subscription::status`) diturunkan dari `stores.subscription_ends_at`:
+
+| Status | Kondisi | Yang terjadi saat login |
+| --- | --- | --- |
+| `pending` | belum pernah bayar (`null`) | diarahkan ke `/subscription` (pilih paket) |
+| `active` | tanggal habis > sekarang | aplikasi normal; banner kuning 7 hari terakhir |
+| `expired` | tanggal habis sudah lewat | halaman **Langganan Habis**: tombol *Keluar* dan *Perpanjang* |
+
+API JSON menjawab `402` beserta `redirect`, sehingga halaman yang masih terbuka
+ikut pindah ke halaman "Langganan Habis".
+
+**Aturan pembayaran:**
+
+- **Perpanjangan dihitung dari tanggal habis** kalau langganan masih berjalan,
+  dan dari saat bayar kalau sudah habis (`Subscription::extend`). Perpanjang
+  lebih awal tidak pernah rugi.
+- Penambahan bulan tidak meluber: 31 Jan + 1 bulan = 28/29 Feb (`Plan::addTo`).
+- **Hanya webhook yang mengaktifkan.** Halaman "terima kasih" setelah redirect
+  tidak membuktikan apa-apa. `PaymentFinish` hanya menunggu (cek ulang tiap 3
+  detik) sampai webhook masuk.
+- Webhook bisa datang dua kali sekaligus. `ConfirmPayment` mengunci baris
+  pembayaran, dan yang sudah `paid` dikembalikan apa adanya, jadi masa
+  langganan hanya bertambah sekali. Nominal yang berbeda dari tagihan ditolak.
+- Klik "Bayar" dua kali memakai tagihan yang sama (`StartCheckout` memakai ulang
+  tagihan `pending` yang masih berlaku).
+- Tagihan berlaku 24 jam.
+
+**Gateway** dipilih lewat `PAYMENT_DRIVER` (port `PaymentGateway`):
+
+| Driver | Untuk | Butuh |
+| --- | --- | --- |
+| `fake` (bawaan) | lokal / uji coba | tidak ada. "Halaman bayar" ada di `/pay/simulate/{id}`; tombol *Bayar sekarang* menjalankan `ConfirmPayment` yang sama dengan webhook. Mati otomatis di production. |
+| `xendit` | test mode & produksi | `XENDIT_SECRET_KEY`, `XENDIT_CALLBACK_TOKEN`. Kunci `xnd_development_…` = uang bohongan. |
+
+Memakai **Xendit test mode** (gratis, tanpa verifikasi KTP/badan usaha):
+
+1. Daftar di dashboard.xendit.co, lalu pindah ke **Test Mode**.
+2. Buka Settings → API Keys, buat *secret key* dengan izin *Money-in: Write*,
+   lalu isi `XENDIT_SECRET_KEY`.
+3. Buka Settings → Webhooks, salin *verification token* ke
+   `XENDIT_CALLBACK_TOKEN`, dan isi URL *Invoices paid* dengan
+   `https://<domain>/webhooks/xendit/invoice`. Di lokal pakai tunnel, misalnya
+   `ngrok http 8000`, karena Xendit tidak bisa memanggil `localhost`.
+4. Set `PAYMENT_DRIVER=xendit`, lalu jalankan `php artisan config:clear`.
+5. Di halaman invoice test mode ada tombol untuk mensimulasikan pembayaran.
+
+**Perintah terjadwal** (`routes/console.php`; butuh cron
+`* * * * * php artisan schedule:run`, atau `php artisan schedule:work` di lokal):
+
+| Perintah | Jadwal | Isi |
+| --- | --- | --- |
+| `subscriptions:remind` | setiap hari 08:00 | email pengingat H-7 dan H-1. Dicatat di `stores.last_reminder`, jadi tidak terkirim dua kali. |
+| `subscriptions:cleanup` | setiap jam | tagihan lewat waktu → `expired`; akun yang **24 jam** tidak bayar dihapus (toko, login, kategori). |
+
+Akun yang masih punya tagihan terbuka tidak dihapus sampai tagihan itu habis
+waktunya, supaya tidak ada uang masuk untuk akun yang sudah dihapus.
+
+OTP pendaftaran (`Infrastructure\Registration\EmailOtp`):
+
+- Yang disimpan hanya HMAC kodenya, terikat ke alamat email.
+- Kode bisa dikirim ulang setelah 60 detik.
+- Email yang sedang didaftarkan disimpan di sesi, bukan di form langkah 2,
+  jadi tidak bisa ditukar setelah diverifikasi.
 
 API sengaja berada di grup `web`, bukan `routes/api.php`: sesi dan token CSRF-nya
 sama dengan halaman, jadi tidak perlu Sanctum atau token terpisah. Props dan
@@ -290,7 +423,11 @@ Tes domain dan use case jalan tanpa database — itu keuntungan utama pemisahan 
   skala warung ini cukup; kalau nanti perlu, tinggal ganti implementasi di
   `Infrastructure` tanpa menyentuh domain.
 - `users` masih dipakai apa adanya dari Laravel (`Authenticatable`) karena
-  autentikasi bukan bagian dari domain warung.
+  autentikasi bukan bagian dari domain warung. Pendaftaran pun ada di
+  `Infrastructure\Registration`, bukan use case, dengan alasan yang sama.
+- Pemisahan toko bergantung pada global scope Eloquent. Query mentah
+  (`DB::table`, aturan validasi `exists`/`unique`) wajib menambahkan
+  `store_id` sendiri; `TenancyTest` menjaga jalur yang ada sekarang.
 - Tidak ada domain event / event sourcing. Belum ada kebutuhannya.
 - Belum ada optimistic update di kasir: transaksi menunggu balasan server dulu.
   Untuk warung dengan satu kasir, kepastian stok lebih penting daripada

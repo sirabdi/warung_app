@@ -49,6 +49,12 @@ export async function apiFetch(path, { method = 'GET', body, signal } = {}) {
 
     const payload = await response.json().catch(() => ({}));
 
+    if (response.status === 402) {
+        // Subscription ran out while the page was open.
+        window.location.href = payload.redirect || '/subscription/expired';
+        throw new ApiError(payload.message, { status: response.status });
+    }
+
     if (!response.ok) {
         throw new ApiError(payload.message || 'Gagal menyimpan, coba lagi.', {
             status: response.status,

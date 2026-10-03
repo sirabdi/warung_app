@@ -10,7 +10,7 @@ export default function ForgotPassword({ expireMinutes }) {
 
     const submit = (e) => {
         e.preventDefault();
-        form.post('/forgot-password', { preserveScroll: true });
+        form.post('/forgot-password', { preserveScroll: true, onSuccess: () => form.reset('email') });
     };
 
     return (

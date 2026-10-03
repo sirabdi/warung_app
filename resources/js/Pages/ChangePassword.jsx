@@ -1,10 +1,10 @@
 import { Link, useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
 import AuthCard from '@/components/AuthCard';
+import PasswordInput from '@/components/PasswordInput';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 
 // Opened from the link in the email: /change-password?token=…&email=…
 export default function ChangePassword({ token, email }) {
@@ -31,9 +31,8 @@ export default function ChangePassword({ token, email }) {
             <form onSubmit={submit} className="space-y-4">
                 <Field>
                     <FieldLabel htmlFor="password">Password baru</FieldLabel>
-                    <Input
+                    <PasswordInput
                         id="password"
-                        type="password"
                         value={form.data.password}
                         onChange={(e) => form.setData('password', e.target.value)}
                         aria-invalid={!!form.errors.password}
@@ -44,9 +43,8 @@ export default function ChangePassword({ token, email }) {
                 </Field>
                 <Field>
                     <FieldLabel htmlFor="password_confirmation">Ulangi password baru</FieldLabel>
-                    <Input
+                    <PasswordInput
                         id="password_confirmation"
-                        type="password"
                         value={form.data.password_confirmation}
                         onChange={(e) => form.setData('password_confirmation', e.target.value)}
                         autoComplete="new-password"

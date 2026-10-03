@@ -18,16 +18,27 @@ Tambahan atas permintaan pemilik (Oktober 2026):
   Rp 100. `Beras 1kg` dan `Minyak Goreng 1L` dikonversi oleh
   `WeighedProductSeeder` (10 pcs → 10 kg).
 
-Login satu akun pemilik ikut dibuat karena aplikasi dipasang online dan datanya
-tidak boleh terbuka untuk publik. Tabel `users` sudah siap untuk multi-toko,
-tapi **logika multi-toko belum dikerjakan**.
+- **Lupa password via email** — tautan `/change-password` berlaku 10 menit.
+- **Dijual sebagai langganan (multi-toko)** — pendaftaran dengan OTP email,
+  paket 1/3/9/12/24 bulan, pembayaran Xendit (atau simulasi lokal), halaman
+  "Langganan Habis", pengingat H-7/H-1, dan akun yang 24 jam tidak bayar
+  dihapus. Satu toko = satu login. Data lama menjadi toko #1. Detailnya ada di
+  ARSITEKTUR.md bagian "Multi-toko" dan "Pendaftaran & langganan".
+- **Dashboard admin (`/admin`)** — khusus pemilik aplikasi, hanya baca: jumlah
+  pelanggan aktif/habis/belum bayar, yang segera habis, pendapatan, daftar toko
+  (cari & filter status), dan pembayaran terbaru. Login admin dibuat dengan
+  `php artisan admin:create <email>`.
 
 ## Backlog — JANGAN dikerjakan dulu
 
 Semua di bawah ini sudah dipikirkan tapi sengaja ditunda sampai MVP dipakai
 nyata di 1 warung minimal 1–2 minggu:
 
-- Multi-toko / multi-user per toko (kolom `store_id`, pemisahan data)
+- Aksi admin (ubah/perpanjang langganan manual, nonaktifkan toko, masuk sebagai toko)
+- Beberapa login per toko (kasir/karyawan dengan hak akses berbeda)
+- Uji coba gratis (mis. 7 hari) sebelum bayar
+- Pasar luar negeri: multi-bahasa, mata uang selain Rupiah, pajak
+- Langganan otomatis diperpanjang (recurring / auto-debit)
 - Hitung uang bayar & kembalian di kasir
 - Diskon, promo, harga grosir, konversi satuan beli ↔ jual (dus/karung → pcs/kg)
 - Barcode scanner & kode produk

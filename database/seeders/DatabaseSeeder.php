@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Infrastructure\Persistence\Eloquent\Models\Product;
+use App\Infrastructure\Persistence\Eloquent\Models\Store;
 use App\Infrastructure\Persistence\Eloquent\Models\User;
+use App\Infrastructure\Tenancy\CurrentStore;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -11,13 +13,41 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $email = env('WARUNG_USER_EMAIL', 'warung@example.com');
+
+        // The app owner's own store never runs out; customers pay for theirs.
+        $storeId = User::where('email', $email)->value('store_id')
+            ?? Store::create([
+                'name' => env('WARUNG_STORE_NAME', 'Warung'),
+                'phone' => '-',
+                'address' => '-',
+                'subscription_ends_at' => '2099-12-31 23:59:59',
+            ])->id;
+
         User::updateOrCreate(
-            ['email' => env('WARUNG_USER_EMAIL', 'warung@example.com')],
+            ['email' => $email],
             [
+                'store_id' => $storeId,
                 'name' => env('WARUNG_USER_NAME', 'Pemilik Warung'),
                 'password' => Hash::make(env('WARUNG_USER_PASSWORD', 'rahasia123')),
+                'email_verified_at' => now(),
             ],
         );
+
+        // A ready-made /admin login for development; elsewhere use `php artisan admin:create`.
+        if (app()->environment('local')) {
+            User::updateOrCreate(
+                ['email' => env('WARUNG_ADMIN_EMAIL', 'admin@example.com')],
+                [
+                    'store_id' => null,
+                    'name' => 'Admin',
+                    'password' => Hash::make(env('WARUNG_ADMIN_PASSWORD', 'rahasia123')),
+                    'email_verified_at' => now(),
+                ],
+            )->forceFill(['is_admin' => true])->save();
+        }
+
+        app(CurrentStore::class)->set($storeId);
 
         if (app()->environment('local') && Product::count() === 0) {
             $samples = [

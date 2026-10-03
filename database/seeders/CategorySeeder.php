@@ -2,53 +2,47 @@
 
 namespace Database\Seeders;
 
+use App\Application\Category\DefaultCategories;
 use App\Infrastructure\Persistence\Eloquent\Models\Category;
 use Illuminate\Database\Seeder;
 
 /**
- * Default warung categories. Safe to run again: existing names are left
- * alone, and categories the owner added or renamed are never touched.
+ * Default warung categories for the owner's store (new stores get them when
+ * they register). Safe to run again: existing names are left alone, and
+ * categories the owner added or renamed are never touched.
  */
 class CategorySeeder extends Seeder
 {
-    public const SEMBAKO = 'Sembako (bahan pokok)';
+    use UsesOwnerStore;
 
-    public const BUMBU = 'Bumbu dan bahan masak';
+    public const SEMBAKO = DefaultCategories::SEMBAKO;
 
-    public const MINUMAN = 'Minuman';
+    public const BUMBU = DefaultCategories::BUMBU;
 
-    public const SNACK = 'Makanan ringan (snack)';
+    public const MINUMAN = DefaultCategories::MINUMAN;
 
-    public const MANDI = 'Perlengkapan mandi dan kebersihan diri';
+    public const SNACK = DefaultCategories::SNACK;
 
-    public const RUMAH_TANGGA = 'Kebutuhan rumah tangga';
+    public const MANDI = DefaultCategories::MANDI;
 
-    public const ROKOK = 'Rokok';
+    public const RUMAH_TANGGA = DefaultCategories::RUMAH_TANGGA;
 
-    public const OBAT = 'Obat-obatan ringan';
+    public const ROKOK = DefaultCategories::ROKOK;
 
-    public const GAS = 'Gas dan bahan bakar';
+    public const OBAT = DefaultCategories::OBAT;
 
-    public const LAYANAN = 'Layanan tambahan (pulsa, token listrik, dll.)';
+    public const GAS = DefaultCategories::GAS;
 
-    public const SIAP_SAJI = 'Makanan dan minuman siap saji';
+    public const LAYANAN = DefaultCategories::LAYANAN;
 
-    public const DEFAULTS = [
-        self::SEMBAKO,
-        self::BUMBU,
-        self::MINUMAN,
-        self::SNACK,
-        self::MANDI,
-        self::RUMAH_TANGGA,
-        self::ROKOK,
-        self::OBAT,
-        self::GAS,
-        self::LAYANAN,
-        self::SIAP_SAJI,
-    ];
+    public const SIAP_SAJI = DefaultCategories::SIAP_SAJI;
+
+    public const DEFAULTS = DefaultCategories::NAMES;
 
     public function run(): void
     {
+        $this->useOwnerStore();
+
         foreach (self::DEFAULTS as $name) {
             Category::firstOrCreate(['name' => $name]);
         }

@@ -1,9 +1,10 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { BarChart3, LogOut, PackageOpen, PackagePlus, PanelLeft, ShoppingCart, Store, Tags } from 'lucide-react';
+import { BarChart3, CalendarClock, CreditCard, LogOut, PackageOpen, PackagePlus, PanelLeft, ShoppingCart, Store, Tags } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { daysUntil, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from '@/toast';
 
@@ -14,6 +15,12 @@ const menu = [
     { href: '/stock-in', label: 'Stok Masuk', icon: PackagePlus },
     { href: '/report', label: 'Laporan', icon: BarChart3 },
 ];
+
+// Not in the bottom bar on phones (five is its limit): the header has an icon.
+const subscriptionItem = { href: '/subscription', label: 'Langganan', icon: CreditCard };
+
+// The reminder emails go out H-7 and H-1; the app says it every day of that week.
+const WARN_DAYS = 7;
 
 // Remembered per browser. Layout remounts on every visit, so the choice has to
 // live outside React state; storage may be blocked, hence the try/catch.
@@ -68,6 +75,8 @@ export default function Layout({ title, children }) {
     const { url, props } = usePage();
     const path = url.split('?')[0];
     const userName = props.auth?.user?.name;
+    const endsAt = props.auth?.store?.subscription_ends_at;
+    const daysLeft = endsAt ? daysUntil(endsAt) : null;
     const [collapsed, setCollapsed] = useState(readCollapsed);
 
     const toggle = () =>
@@ -128,7 +137,18 @@ export default function Layout({ title, children }) {
                     ))}
                 </nav>
 
-                <div className={cn('border-t p-3', collapsed && 'flex justify-center px-0')}>
+                <div className={cn('flex flex-col gap-1 border-t p-3', collapsed && 'items-center px-0')}>
+                    <SidebarItem
+                        asChild
+                        collapsed={collapsed}
+                        active={path === subscriptionItem.href}
+                        label={subscriptionItem.label}
+                    >
+                        <Link href={subscriptionItem.href}>
+                            <subscriptionItem.icon className="size-5" />
+                            {collapsed ? <span className="sr-only">{subscriptionItem.label}</span> : subscriptionItem.label}
+                        </Link>
+                    </SidebarItem>
                     <SidebarItem collapsed={collapsed} label={`Keluar (${userName})`} onClick={() => router.post('/logout')}>
                         <LogOut className="size-5" />
                         {collapsed ? (
@@ -163,17 +183,35 @@ export default function Layout({ title, children }) {
                         <Separator orientation="vertical" className="hidden !h-5 lg:block" />
                         <span className="truncate font-semibold">{title}</span>
 
+                        <Button asChild variant="ghost" size="icon" className="ml-auto text-muted-foreground lg:hidden">
+                            <Link href={subscriptionItem.href}>
+                                <subscriptionItem.icon />
+                                <span className="sr-only">{subscriptionItem.label}</span>
+                            </Link>
+                        </Button>
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => router.post('/logout')}
-                            className="ml-auto text-muted-foreground lg:hidden"
+                            className="text-muted-foreground lg:hidden"
                         >
                             <LogOut />
                             <span className="sr-only">Keluar</span>
                         </Button>
                     </div>
                 </header>
+
+                {daysLeft !== null && daysLeft <= WARN_DAYS && path !== subscriptionItem.href && (
+                    <div className="flex items-center gap-2 border-b bg-warning/15 px-3 py-2 text-sm lg:px-4">
+                        <CalendarClock className="size-4 shrink-0" />
+                        <span className="min-w-0 flex-1">
+                            Langganan berakhir {formatDate(endsAt)}, sisa {daysLeft} hari.
+                        </span>
+                        <Button asChild size="sm" variant="outline" className="h-8 shrink-0">
+                            <Link href={subscriptionItem.href}>Perpanjang</Link>
+                        </Button>
+                    </div>
+                )}
 
                 <main className="mx-auto max-w-6xl p-3 md:p-4">{children}</main>
             </div>

@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Payment gateway for subscriptions (PAYMENT_DRIVER=xendit). The callback
+    // token comes from Xendit Dashboard → Settings → Webhooks.
+    'xendit' => [
+        'base_url' => env('XENDIT_BASE_URL', 'https://api.xendit.co'),
+        'secret_key' => env('XENDIT_SECRET_KEY'),
+        'callback_token' => env('XENDIT_CALLBACK_TOKEN'),
+    ],
+
 ];

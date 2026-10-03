@@ -139,6 +139,7 @@ class CoreFeaturesTest extends TestCase
 
     public function test_seeders_create_default_categories_and_sort_existing_products(): void
     {
+        $this->login(); // seeders write into the logged-in user's store
         Product::factory()->create(['name' => 'Rokok Sampoerna', 'category_id' => null]);
         Product::factory()->create(['name' => 'Aqua Botol 600ml', 'category_id' => null]);
         $chosen = Category::factory()->create(['name' => 'Pilihan pemilik']);
@@ -404,6 +405,7 @@ class CoreFeaturesTest extends TestCase
 
     public function test_packaged_rice_and_oil_are_converted_to_weighed_goods(): void
     {
+        $this->login(); // seeders write into the logged-in user's store
         $rice = Product::factory()->create(['name' => 'Beras 1kg', 'stock' => 10, 'sell_price' => 14000, 'cost_price' => 12000]);
         $oil = Product::factory()->create(['name' => 'Minyak Goreng 1L', 'stock' => 3]);
         Transaction::create([
@@ -424,6 +426,7 @@ class CoreFeaturesTest extends TestCase
 
     public function test_demo_seeder_fills_a_shelf_and_a_day_of_sales(): void
     {
+        $this->login(); // seeders write into the logged-in user's store
         $this->seed(DemoSeeder::class);
         $this->seed(DemoSeeder::class); // safe to run twice
 
@@ -433,7 +436,6 @@ class CoreFeaturesTest extends TestCase
         $this->assertGreaterThanOrEqual(10, $sales);
         $this->assertSame(0, Product::where('stock', '<', 0)->count());
 
-        $this->login();
         $this->getJson('/api/report')
             ->assertJsonPath('summary.sales', $sales)
             ->assertJsonCount(5, 'bestSellers')

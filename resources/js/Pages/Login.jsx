@@ -1,5 +1,6 @@
 import { Link, useForm } from '@inertiajs/react';
 import AuthCard from '@/components/AuthCard';
+import PasswordInput from '@/components/PasswordInput';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -35,9 +36,8 @@ export default function Login() {
                             <Link href="/forgot-password">Lupa password?</Link>
                         </Button>
                     </div>
-                    <Input
+                    <PasswordInput
                         id="password"
-                        type="password"
                         value={form.data.password}
                         onChange={(e) => form.setData('password', e.target.value)}
                         autoComplete="current-password"
@@ -47,6 +47,12 @@ export default function Login() {
                     Masuk
                 </Button>
             </form>
+            <p className="text-center text-sm text-muted-foreground">
+                Belum punya akun?{' '}
+                <Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">
+                    Daftar sekarang
+                </Link>
+            </p>
         </AuthCard>
     );
 }

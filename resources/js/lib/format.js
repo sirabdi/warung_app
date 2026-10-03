@@ -11,3 +11,14 @@ export const parseNumber = (s) => {
 };
 
 export const matches = (name, query) => name.toLowerCase().includes(query.trim().toLowerCase());
+
+const dateFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+const dateTimeFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+// ISO string from the server -> "3 Oktober 2026" / "3 Okt 2026, 14.05"
+export const formatDate = (iso) => (iso ? dateFormat.format(new Date(iso)) : '');
+
+export const formatDateTime = (iso) => (iso ? dateTimeFormat.format(new Date(iso)) : '');
+
+// Whole days from now until an ISO date; 0 once it has passed.
+export const daysUntil = (iso) => Math.max(0, Math.ceil((new Date(iso) - Date.now()) / 86_400_000));
