@@ -3,10 +3,12 @@
 namespace App\Infrastructure\Persistence\Eloquent\Repository;
 
 use App\Domain\Product\Entity\Product;
+use App\Domain\Product\Exception\DuplicateProductName;
 use App\Domain\Product\Exception\ProductNotFound;
 use App\Domain\Product\Repository\ProductRepository;
 use App\Infrastructure\Persistence\Eloquent\Mapper\ProductMapper;
 use App\Infrastructure\Persistence\Eloquent\Models\Product as ProductModel;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 final class EloquentProductRepository implements ProductRepository
 {
@@ -43,7 +45,12 @@ final class EloquentProductRepository implements ProductRepository
             ? ProductModel::findOrFail($product->id())
             : new ProductModel;
 
-        $model->fill(ProductMapper::toColumns($product))->save();
+        try {
+            $model->fill(ProductMapper::toColumns($product))->save();
+        } catch (UniqueConstraintViolationException) {
+            // Saved by someone else between nameExists() and here.
+            throw DuplicateProductName::of($product->name());
+        }
 
         $product->assignId($model->id);
 
@@ -52,7 +59,8 @@ final class EloquentProductRepository implements ProductRepository
 
     public function nameExists(string $name, ?int $exceptId = null): bool
     {
-        return ProductModel::where('name', trim($name))
+        // Stored names are already normalized; lower() keeps SQLite as lenient as MySQL's _ci collation.
+        return ProductModel::whereRaw('lower(name) = ?', [Product::nameKey($name)])
             ->when($exceptId, fn ($query) => $query->whereKeyNot($exceptId))
             ->exists();
     }

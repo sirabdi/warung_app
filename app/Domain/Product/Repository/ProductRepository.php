@@ -23,6 +23,7 @@ interface ProductRepository
 
     public function save(Product $product): Product;
 
+    /** Same name as Product::nameKey() sees it: ignoring case and extra spaces. */
     public function nameExists(string $name, ?int $exceptId = null): bool;
 
     public function countInCategory(int $categoryId): int;

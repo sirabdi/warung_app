@@ -8,6 +8,7 @@ export const keys = {
     cashierProductPage: (params) => ['cashier', 'products', params],
     products: ['products'],
     productPage: (params) => ['products', params],
+    similarProducts: (name, except) => ['products', 'similar', name, except],
     categories: ['categories'],
     categoryOptions: ['categories', 'options'],
     categoryPage: (params) => ['categories', 'page', params],
@@ -48,6 +49,19 @@ export function useProducts(params, initialData) {
         queryKey: keys.productPage(params),
         queryFn: ({ signal }) => apiFetch(`/products${toQueryString(params)}`, { signal }),
         ...pageOptions(initialData),
+    });
+}
+
+// Products the name being typed may duplicate. Under the products prefix, so a
+// save refreshes it. Names under two letters match too much to be useful.
+export function useSimilarProducts(name, except) {
+    return useQuery({
+        queryKey: keys.similarProducts(name, except),
+        queryFn: ({ signal }) =>
+            apiFetch(`/products/similar${toQueryString({ name, except })}`, { signal }).then((r) => r.data),
+        enabled: name.length >= 2,
+        placeholderData: (previous) => previous,
+        staleTime: 30_000,
     });
 }
 

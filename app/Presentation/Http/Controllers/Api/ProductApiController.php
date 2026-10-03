@@ -9,6 +9,7 @@ use App\Presentation\Http\Controllers\Controller;
 use App\Presentation\Http\Requests\ProductListRequest;
 use App\Presentation\Http\Requests\SaveProductRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ProductApiController extends Controller
 {
@@ -19,6 +20,19 @@ class ProductApiController extends Controller
                 ->paginate($request->search(), $request->page(), $request->perPage(), $request->categoryId())
                 ->toArray(),
         );
+    }
+
+    /** Existing products the name being typed may duplicate: GET /api/products/similar?name=&except=. */
+    public function similar(Request $request, ProductList $products): JsonResponse
+    {
+        $input = $request->validate([
+            'name' => ['nullable', 'string', 'max:100'],
+            'except' => ['nullable', 'integer'],
+        ]);
+
+        return response()->json([
+            'data' => $products->similar($input['name'] ?? '', isset($input['except']) ? (int) $input['except'] : null),
+        ]);
     }
 
     public function store(SaveProductRequest $request, AddProduct $addProduct): JsonResponse

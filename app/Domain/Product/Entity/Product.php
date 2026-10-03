@@ -152,9 +152,24 @@ final class Product
         return $this->categoryId;
     }
 
+    /**
+     * How a name is stored: trimmed, runs of spaces made one. "Indomie  Goreng "
+     * and "Indomie Goreng" are the same product.
+     */
+    public static function normalizeName(string $name): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', $name));
+    }
+
+    /** Two names are the same product when this matches: case does not count either. */
+    public static function nameKey(string $name): string
+    {
+        return mb_strtolower(self::normalizeName($name));
+    }
+
     private function renameTo(string $name): void
     {
-        $name = trim($name);
+        $name = self::normalizeName($name);
 
         if ($name === '') {
             throw new InvalidValue('Nama produk wajib diisi.', 'name');

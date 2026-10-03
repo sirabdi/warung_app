@@ -51,6 +51,14 @@ class ProductTest extends TestCase
         Product::register('   ', 1, Money::of(3000));
     }
 
+    public function test_names_are_stored_with_single_spaces(): void
+    {
+        $product = Product::register("  Indomie   Goreng\t85g ", 1, Money::of(3500));
+
+        $this->assertSame('Indomie Goreng 85g', $product->name());
+        $this->assertSame(Product::nameKey('INDOMIE goreng  85G'), Product::nameKey($product->name()));
+    }
+
     public function test_new_product_may_start_with_stock(): void
     {
         $product = Product::register('Aqua', 3, Money::of(4000), Money::of(3000), 24);

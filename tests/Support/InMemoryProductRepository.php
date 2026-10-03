@@ -49,7 +49,7 @@ final class InMemoryProductRepository implements ProductRepository
     public function nameExists(string $name, ?int $exceptId = null): bool
     {
         foreach ($this->products as $id => $product) {
-            if ($product->name() === trim($name) && $id !== $exceptId) {
+            if (Product::nameKey($product->name()) === Product::nameKey($name) && $id !== $exceptId) {
                 return true;
             }
         }

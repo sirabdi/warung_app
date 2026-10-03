@@ -106,9 +106,9 @@ function ProductPicker({ onSelect }) {
 }
 
 // Step two: how many came in. Mounted only while the dialog is open, so it
-// always starts at step one.
-function StockInForm({ onDone }) {
-    const [selected, setSelected] = useState(null);
+// starts at step one, or at step two when a product was handed over.
+function StockInForm({ initialProduct = null, onDone }) {
+    const [selected, setSelected] = useState(initialProduct);
     const [qty, setQty] = useState('');
     const qtyRef = useRef(null);
 
@@ -156,6 +156,7 @@ function StockInForm({ onDone }) {
                 <QuantityInput
                     id="qty"
                     ref={qtyRef}
+                    autoFocus={selected === initialProduct}
                     unit={selected.unit}
                     placeholder="0"
                     value={qty}
@@ -201,8 +202,15 @@ function StockInForm({ onDone }) {
     );
 }
 
-export default function StockIn({ history: initialPage }) {
-    const [open, setOpen] = useState(false);
+export default function StockIn({ history: initialPage, selectedProduct }) {
+    // From "Tambah stok" on Produk (?product=): the dialog opens on that product.
+    // replaceUrl below drops the parameter, so a refresh does not open it again.
+    const [preselected, setPreselected] = useState(selectedProduct);
+    const [open, setOpen] = useState(!!selectedProduct);
+    const changeOpen = (next) => {
+        setOpen(next);
+        if (!next) setPreselected(null);
+    };
     const [page, setPage] = useState(initialPage.meta.page);
 
     const { data, isPlaceholderData } = useStockInHistory(
@@ -258,13 +266,13 @@ export default function StockIn({ history: initialPage }) {
 
             <DataPagination meta={data.meta} onPageChange={setPage} />
 
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={changeOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Catat stok masuk</DialogTitle>
                         <DialogDescription>Pilih produk, lalu isi jumlah barang yang datang.</DialogDescription>
                     </DialogHeader>
-                    <StockInForm onDone={() => setOpen(false)} />
+                    <StockInForm initialProduct={preselected} onDone={() => changeOpen(false)} />
                 </DialogContent>
             </Dialog>
         </Layout>

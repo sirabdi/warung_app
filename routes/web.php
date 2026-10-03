@@ -69,6 +69,8 @@ Route::middleware(['auth', 'store', 'subscribed'])->group(function () {
     // Inertia page shells. They also hand the first payload to TanStack Query.
     Route::get('/', [CashierController::class, 'index'])->name('cashier');
     Route::get('/products', [ProductController::class, 'index'])->name('products');
+    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit')->whereNumber('product');
     Route::get('/categories', [CategoryController::class, 'index'])->name('categories');
     Route::get('/stock-in', [StockInController::class, 'index'])->name('stock-in');
     Route::get('/report', [ReportController::class, 'index'])->name('report');
@@ -80,6 +82,7 @@ Route::middleware(['auth', 'store', 'subscribed'])->group(function () {
         Route::post('/sales', [CashierApiController::class, 'store'])->name('sales.store');
 
         Route::get('/products', [ProductApiController::class, 'index'])->name('products');
+        Route::get('/products/similar', [ProductApiController::class, 'similar'])->name('products.similar');
         Route::post('/products', [ProductApiController::class, 'store'])->name('products.store');
         Route::put('/products/{product}', [ProductApiController::class, 'update'])->name('products.update')->whereNumber('product');
 

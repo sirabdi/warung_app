@@ -1,6 +1,14 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Fragment, useEffect, useState } from 'react';
 import { BarChart3, CalendarClock, CreditCard, LogOut, PackageOpen, PackagePlus, PanelLeft, ShoppingCart, Store, Tags } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -71,7 +79,53 @@ function SidebarItem({ collapsed, active, label, ...props }) {
     );
 }
 
-export default function Layout({ title, children }) {
+// "/products/create" still belongs to the Produk menu; "/" only matches itself.
+const isActive = (path, href) => path === href || (href !== '/' && path.startsWith(`${href}/`));
+
+// The trail after the store: the menu the page belongs to, then the page itself
+// when it is a sub-page (Produk › Tambah produk). A page may pass its own.
+function defaultTrail(path, title) {
+    const section = [...menu, subscriptionItem].find((item) => isActive(path, item.href));
+    if (!section) return [{ label: title }];
+    if (path === section.href) return [{ label: section.label }];
+    return [{ label: section.label, href: section.href }, { label: title }];
+}
+
+// Store › section › page. Phones show only the current page: the header is narrow.
+function PageBreadcrumb({ storeName, trail }) {
+    return (
+        <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap">
+                <BreadcrumbItem className="hidden md:inline-flex">
+                    <BreadcrumbLink asChild>
+                        <Link href="/">{storeName}</Link>
+                    </BreadcrumbLink>
+                </BreadcrumbItem>
+                {trail.map((crumb, i) => {
+                    const last = i === trail.length - 1;
+                    return (
+                        <Fragment key={i}>
+                            <BreadcrumbSeparator className="hidden md:block" />
+                            <BreadcrumbItem className={cn('min-w-0', !last && 'hidden md:inline-flex')}>
+                                {last || !crumb.href ? (
+                                    <BreadcrumbPage className={cn('truncate', last && 'font-semibold')}>
+                                        {crumb.label}
+                                    </BreadcrumbPage>
+                                ) : (
+                                    <BreadcrumbLink asChild>
+                                        <Link href={crumb.href}>{crumb.label}</Link>
+                                    </BreadcrumbLink>
+                                )}
+                            </BreadcrumbItem>
+                        </Fragment>
+                    );
+                })}
+            </BreadcrumbList>
+        </Breadcrumb>
+    );
+}
+
+export default function Layout({ title, breadcrumbs, children }) {
     const { url, props } = usePage();
     const path = url.split('?')[0];
     const userName = props.auth?.user?.name;
@@ -126,10 +180,10 @@ export default function Layout({ title, children }) {
                             key={item.href}
                             asChild
                             collapsed={collapsed}
-                            active={path === item.href}
+                            active={isActive(path, item.href)}
                             label={item.label}
                         >
-                            <Link href={item.href} aria-current={path === item.href ? 'page' : undefined}>
+                            <Link href={item.href} aria-current={isActive(path, item.href) ? 'page' : undefined}>
                                 <item.icon className="size-5" />
                                 {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
                             </Link>
@@ -181,7 +235,10 @@ export default function Layout({ title, children }) {
                         </span>
 
                         <Separator orientation="vertical" className="hidden !h-5 lg:block" />
-                        <span className="truncate font-semibold">{title}</span>
+                        <PageBreadcrumb
+                            storeName={props.auth?.store?.name ?? 'Warung'}
+                            trail={breadcrumbs ?? defaultTrail(path, title)}
+                        />
 
                         <Button asChild variant="ghost" size="icon" className="ml-auto text-muted-foreground lg:hidden">
                             <Link href={subscriptionItem.href}>
@@ -224,7 +281,7 @@ export default function Layout({ title, children }) {
                         href={item.href}
                         className={cn(
                             'flex flex-col items-center gap-1 py-2 text-xs font-medium text-muted-foreground',
-                            path === item.href && 'text-primary',
+                            isActive(path, item.href) && 'text-primary',
                         )}
                     >
                         <item.icon className="size-5" />

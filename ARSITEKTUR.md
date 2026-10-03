@@ -171,6 +171,7 @@ pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
 | --- | --- | --- |
 | `GET /` | CashierController@index | `Cashier` |
 | `GET /products` | ProductController@index | `Products` |
+| `GET /products/create`, `GET /products/{product}/edit` | ProductController@create, @edit | `ProductForm` |
 | `GET /categories` | CategoryController@index | `Categories` |
 | `GET /stock-in` | StockInController@index | `StockIn` |
 | `GET /report` | ReportController@index | `Report` |
@@ -201,6 +202,7 @@ karena hanya dibaca dan tidak ada mutasi. Login admin dibuat dengan
 | `POST /api/sales` | Api\CashierApiController@store |
 | `GET /api/products` | Api\ProductApiController@index |
 | `POST /api/products`, `PUT /api/products/{product}` | Api\ProductApiController |
+| `GET /api/products/similar?name=&except=` (cek nama dobel saat mengetik) | Api\ProductApiController@similar |
 | `GET`, `POST /api/categories`, `PUT`, `DELETE /api/categories/{category}` | Api\CategoryApiController |
 | `GET /api/categories/options` (semua, untuk pilihan) | Api\CategoryApiController@options |
 | `GET /api/stock-in/history`, `POST /api/stock-in` | Api\StockInApiController |

@@ -20,4 +20,21 @@ class ProductController extends Controller
             'filters' => ['search' => $request->search(), 'category' => $request->categoryId()],
         ]);
     }
+
+    public function create(CategoryList $categories): Response
+    {
+        return Inertia::render('ProductForm', [
+            'product' => null,
+            'categories' => $categories->all(),
+        ]);
+    }
+
+    public function edit(int $product, ProductList $products, CategoryList $categories): Response
+    {
+        return Inertia::render('ProductForm', [
+            // Another store's product is not found either: the list is store-scoped.
+            'product' => $products->find($product) ?? abort(404),
+            'categories' => $categories->all(),
+        ]);
+    }
 }
