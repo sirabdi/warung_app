@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DataPagination from '@/components/DataPagination';
 import Layout from '@/components/Layout';
@@ -56,6 +56,13 @@ export default function Report({ date: initialDate, isToday, summary, bestSeller
                 <h1 className="flex-1 text-xl font-bold">{report.isToday ? 'Hari ini' : 'Laporan'}</h1>
                 {isFetching && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                 <Input type="date" className="w-auto" value={params.date} onChange={(e) => changeDate(e.target.value)} />
+                {/* A plain link, not an Inertia visit: the browser downloads the file. */}
+                <Button asChild className="h-11">
+                    <a href={`/report/export?date=${params.date}`} download>
+                        <FileSpreadsheet />
+                        <span className="sr-only sm:not-sr-only">Export</span>
+                    </a>
+                </Button>
             </div>
 
             <div className={cn('transition-opacity', isFetching && 'opacity-60')}>

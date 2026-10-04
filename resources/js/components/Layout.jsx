@@ -125,11 +125,14 @@ function PageBreadcrumb({ storeName, trail }) {
     );
 }
 
+const orDash = (value) => value?.trim() || '-';
+
 export default function Layout({ title, breadcrumbs, children }) {
     const { url, props } = usePage();
     const path = url.split('?')[0];
     const userName = props.auth?.user?.name;
-    const endsAt = props.auth?.store?.subscription_ends_at;
+    const store = props.auth?.store;
+    const endsAt = store?.subscription_ends_at;
     const daysLeft = endsAt ? daysUntil(endsAt) : null;
     const [collapsed, setCollapsed] = useState(readCollapsed);
 
@@ -240,7 +243,14 @@ export default function Layout({ title, breadcrumbs, children }) {
                             trail={breadcrumbs ?? defaultTrail(path, title)}
                         />
 
-                        <Button asChild variant="ghost" size="icon" className="ml-auto text-muted-foreground lg:hidden">
+                        {/* Which store this is, top right. Phones are too narrow: there it is left out. */}
+                        {/* The address in full on one line: the breadcrumb gives way instead. */}
+                        <div className="ml-auto hidden shrink-0 text-right leading-tight sm:block">
+                            <div className="text-sm font-semibold whitespace-nowrap">{orDash(store?.name)}</div>
+                            <div className="text-xs whitespace-nowrap text-muted-foreground">{orDash(store?.address)}</div>
+                        </div>
+
+                        <Button asChild variant="ghost" size="icon" className="ml-auto text-muted-foreground sm:ml-0 lg:hidden">
                             <Link href={subscriptionItem.href}>
                                 <subscriptionItem.icon />
                                 <span className="sr-only">{subscriptionItem.label}</span>

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 
 final class EloquentDailyReportQuery implements DailyReportQuery
 {
+    use BuildsUnitSql;
     use PaginatesQueries;
 
     public function for(
@@ -78,14 +79,8 @@ final class EloquentDailyReportQuery implements DailyReportQuery
 
     private function lowStock(int $threshold, int $page, int $perPage): Page
     {
-        // The threshold is in display units: 5 pcs, or 5 kg = 5000 gram.
-        $limit = $this->perUnitSql(fn (Unit $unit) => $threshold * $unit->scale());
-
-        // Emptiest first, compared in display units (1,4 kg before 2 pcs).
-        $scale = $this->perUnitSql(fn (Unit $unit) => $unit->scale());
-
-        $query = Product::whereRaw("stock <= {$limit}")
-            ->orderByRaw("stock / {$scale}")
+        $query = Product::whereRaw($this->lowStockSql($threshold))
+            ->orderByRaw($this->stockInDisplayUnitsSql())
             ->orderBy('name')
             ->orderBy('id');
 
@@ -124,16 +119,5 @@ final class EloquentDailyReportQuery implements DailyReportQuery
     private function itemCountSql(): string
     {
         return $this->perUnitSql(fn (Unit $unit) => $unit->isMeasured() ? '1' : 'transactions.qty');
-    }
-
-    /** CASE products.unit WHEN 'pcs' THEN … END, built from the Unit enum. */
-    private function perUnitSql(callable $expression): string
-    {
-        $cases = array_map(
-            fn (Unit $unit) => "WHEN '{$unit->value}' THEN ".$expression($unit),
-            Unit::cases(),
-        );
-
-        return 'CASE products.unit '.implode(' ', $cases).' END';
     }
 }

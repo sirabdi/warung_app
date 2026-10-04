@@ -37,13 +37,14 @@ app/
 │   ├── Product/         AddProduct, UpdateProduct, ProductData, ProductList
 │   ├── Category/        AddCategory, RenameCategory, DeleteCategory, CategoryList
 │   ├── Inventory/       RecordStockIn, StockInHistory
-│   └── Report/          DailyReportQuery + DTO laporan
+│   └── Report/          DailyReportQuery, SalesExportQuery + DTO laporan
 ├── Infrastructure/
 │   ├── Persistence/Eloquent/
 │   │   ├── Models/      Product, Transaction, StockIn, User (tanpa aturan bisnis)
 │   │   ├── Mapper/      ProductMapper: baris tabel ⇄ entity
 │   │   ├── Repository/  Eloquent*Repository
 │   │   └── Query/       read model untuk tiap halaman
+│   ├── Export/          DailyReportWorkbook: laporan harian → .xlsx (OpenSpout)
 │   ├── Clock/           SystemClock
 │   └── Provider/        DomainServiceProvider (semua binding)
 └── Presentation/Http/   Controllers, Requests, Middleware
@@ -147,7 +148,7 @@ GET /api/stock-in/history?page=2
 
 | Halaman | Daftar | Per halaman | Parameter |
 | --- | --- | --- | --- |
-| Kasir `/` | produk (terlaris dulu), cari + filter kategori | 20 | `page`, `search`, `category` |
+| Kasir `/` | produk (terlaris dulu), cari + filter kategori | 15 | `page`, `search`, `category` |
 | Produk `/products` | produk, cari + filter kategori | 10 | `page`, `search`, `category` |
 | Kategori `/categories` | kategori + jumlah produk | 10 | `page` |
 | Stok Masuk `/stock-in` | riwayat; pemilih produk di modal | 10 | `page` / `search` |
@@ -175,6 +176,7 @@ pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
 | `GET /categories` | CategoryController@index | `Categories` |
 | `GET /stock-in` | StockInController@index | `StockIn` |
 | `GET /report` | ReportController@index | `Report` |
+| `GET /report/export?date=` | ReportExportController (unduhan .xlsx) | — |
 | `GET /register` (+ `POST /register/code`, `/register/verify`, `/register/restart`, `/register`) | Auth\RegisterController | `Register` |
 | `GET /subscription`, `POST /subscription/checkout` | SubscriptionController | `Subscription` |
 | `GET /subscription/finish/{payment}` | SubscriptionController@finish | `PaymentFinish` |

@@ -221,7 +221,7 @@ class CoreFeaturesTest extends TestCase
             ->assertJsonPath('data.0.category_name', 'Minuman')
             ->assertJsonPath('data.0.sell_price', 2000)
             ->assertJsonPath('data.0.stock', 9)
-            ->assertJsonPath('meta.per_page', 20);
+            ->assertJsonPath('meta.per_page', 15);
     }
 
     public function test_daily_report(): void
@@ -453,7 +453,7 @@ class CoreFeaturesTest extends TestCase
         Product::factory()->create(['name' => 'Teh Botol', 'category_id' => $drinks->id]);
 
         $this->getJson('/api/cashier/products')
-            ->assertJsonCount(20, 'data')
+            ->assertJsonCount(15, 'data')
             ->assertJsonPath('meta.total', 26)
             ->assertJsonPath('meta.last_page', 2);
 
@@ -464,7 +464,7 @@ class CoreFeaturesTest extends TestCase
         $this->getJson('/api/cashier/products?search=teh')->assertJsonPath('data.0.name', 'Teh Botol');
 
         $this->get('/')->assertInertia(fn ($page) => $page->component('Cashier')
-            ->has('products.data', 20)
+            ->has('products.data', 15)
             ->has('categories'));
     }
 

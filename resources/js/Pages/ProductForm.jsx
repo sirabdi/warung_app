@@ -1,12 +1,25 @@
 import { Link, router } from "@inertiajs/react";
-import { AlertTriangle, ArrowLeft, PackagePlus, Pencil } from "lucide-react";
+import {
+    AlertTriangle,
+    ArrowLeft,
+    CircleCheck,
+    Loader2,
+    PackagePlus,
+    Pencil,
+    SearchCheck,
+} from "lucide-react";
 import { useState } from "react";
 import Layout from "@/components/Layout";
 import NumberInput from "@/components/NumberInput";
 import QuantityInput from "@/components/QuantityInput";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
 import {
     Field,
     FieldDescription,
@@ -310,20 +323,83 @@ function Form({ product, categories, hint, nameTaken, onNameChange, onDone }) {
     );
 }
 
-// The form plus the products the typed name may duplicate: under the name below
-// 1024px, in the right column from 1024px. Keyed by product: "Ubah" on a
+const normalizeName = (name) => name.trim().replace(/\s+/g, " ");
+
+// The right column from 1024px: always there, so the page does not jump, and
+// says what the name check found. "Belum terdaftar" only once the server has
+// answered for exactly what is typed now; until then it is still checking.
+function NameCheckPanel({ status, product, hint }) {
+    const notes = {
+        idle: {
+            icon: SearchCheck,
+            className: "text-muted-foreground",
+            text: "Ketik nama produk. Kami cek apakah sudah ada di inventori.",
+        },
+        checking: {
+            icon: Loader2,
+            iconClassName: "animate-spin",
+            className: "text-muted-foreground",
+            text: "Mengecek nama…",
+        },
+        error: {
+            icon: AlertTriangle,
+            className: "text-muted-foreground",
+            text: "Nama belum bisa dicek. Coba ketik ulang sebentar lagi.",
+        },
+        unique: {
+            icon: CircleCheck,
+            className: "text-primary",
+            text: "Belum ada produk dengan nama ini. Aman disimpan.",
+        },
+        unchanged: {
+            icon: CircleCheck,
+            className: "text-muted-foreground",
+            text: `Nama saat ini: ${product?.name}.`,
+        },
+    };
+    const note = notes[status];
+
+    return (
+        <Card className="gap-3 py-4">
+            <CardHeader className="px-4">
+                <CardTitle className="text-sm">Cek nama produk</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 text-sm">
+                {note ? (
+                    <div className={`flex items-start gap-2 ${note.className}`}>
+                        <note.icon
+                            className={`mt-0.5 size-4 shrink-0 ${note.iconClassName ?? ""}`}
+                        />
+                        <p>{note.text}</p>
+                    </div>
+                ) : (
+                    hint
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// The form plus the name check: duplicates under the name below 1024px, the
+// whole check in the right column from 1024px. Keyed by product: "Ubah" on a
 // duplicate lands on another product's page, and Inertia keeps the page
 // component mounted, so this part has to start over.
 function Editor({ product, categories }) {
     const [name, setName] = useState(product?.name ?? "");
-    const typedName = useDebouncedValue(name.trim().replace(/\s+/g, " "));
-    const { data, isPlaceholderData } = useSimilarProducts(
+    const currentName = normalizeName(name);
+    const typedName = useDebouncedValue(currentName);
+    const { data, isPlaceholderData, isError } = useSimilarProducts(
         typedName,
         product?.id,
     );
-    // While the next name is loading, the list still belongs to the previous one.
-    const matches =
-        typedName.length >= 2 && !isPlaceholderData ? (data ?? []) : [];
+    // The answer counts only when it is for the name typed right now: not
+    // mid-debounce, and not the previous name's list kept while loading.
+    const answered =
+        currentName.length >= 2 &&
+        typedName === currentName &&
+        data !== undefined &&
+        !isPlaceholderData;
+    const matches = answered ? data : [];
     const exact = matches.find((item) => item.exact);
     const similar = matches.filter((item) => !item.exact);
     const hint =
@@ -335,9 +411,21 @@ function Editor({ product, categories }) {
             />
         ) : null;
 
+    let status;
+    if (currentName.length < 2) status = "idle";
+    else if (hint) status = "found";
+    else if (answered)
+        status =
+            product &&
+            currentName.toLowerCase() === product.name.toLowerCase()
+                ? "unchanged"
+                : "unique";
+    else if (isError && typedName === currentName) status = "error";
+    else status = "checking";
+
     return (
         <div className="grid items-start gap-4 lg:grid-cols-10">
-            <Card className="px-4 py-4 md:px-6 md:py-6 col-span-6">
+            <Card className="px-4 py-4 md:px-6 md:py-6 lg:col-span-6">
                 <Form
                     product={product}
                     categories={categories}
@@ -347,7 +435,9 @@ function Editor({ product, categories }) {
                     onDone={() => router.visit("/products")}
                 />
             </Card>
-            {hint && <div className="hidden lg:block col-span-4">{hint}</div>}
+            <div className="hidden lg:col-span-4 lg:block">
+                <NameCheckPanel status={status} product={product} hint={hint} />
+            </div>
         </div>
     );
 }

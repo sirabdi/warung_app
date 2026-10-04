@@ -28,6 +28,10 @@ Tambahan atas permintaan pemilik (Oktober 2026):
   pelanggan aktif/habis/belum bayar, yang segera habis, pendapatan, daftar toko
   (cari & filter status), dan pembayaran terbaru. Login admin dibuat dengan
   `php artisan admin:create <email>`.
+- **Ekspor Excel laporan** — tombol "Export Excel" di `/report` mengunduh
+  `.xlsx` untuk tanggal yang dipilih: Ringkasan, Transaksi (per struk), Rincian
+  item, Per produk (semua, bukan hanya 5 teratas), Per kategori, dan Stok
+  menipis (stok saat file dibuat). Nama/kategori produk mengikuti data sekarang.
 
 ## Backlog — JANGAN dikerjakan dulu
 
@@ -47,7 +51,7 @@ nyata di 1 warung minimal 1–2 minggu:
 - Retur barang, stok opname, koreksi stok manual
 - Foto produk
 - Utang/kasbon pelanggan
-- Laporan mingguan/bulanan, grafik tren, ekspor Excel
+- Laporan mingguan/bulanan, grafik tren, ekspor Excel untuk rentang tanggal
 - Notifikasi WhatsApp stok habis
 - Mode offline / PWA
 - Pencatatan pengeluaran & kas

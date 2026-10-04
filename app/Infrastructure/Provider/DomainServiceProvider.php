@@ -7,6 +7,7 @@ use App\Application\Category\Query\CategoryList;
 use App\Application\Inventory\Query\StockInHistory;
 use App\Application\Product\Query\ProductList;
 use App\Application\Report\Query\DailyReportQuery;
+use App\Application\Report\Query\SalesExportQuery;
 use App\Application\Shared\Clock;
 use App\Application\Shared\TransactionManager;
 use App\Application\Subscription\Port\PaymentGateway;
@@ -24,6 +25,7 @@ use App\Infrastructure\Payment\XenditPaymentGateway;
 use App\Infrastructure\Persistence\Eloquent\EloquentTransactionManager;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentCategoryList;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentDailyReportQuery;
+use App\Infrastructure\Persistence\Eloquent\Query\EloquentSalesExportQuery;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentPaymentHistory;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentStoreDirectory;
 use App\Infrastructure\Persistence\Eloquent\Query\EloquentProductList;
@@ -61,6 +63,7 @@ class DomainServiceProvider extends ServiceProvider
         CategoryList::class => EloquentCategoryList::class,
         StockInHistory::class => EloquentStockInHistory::class,
         DailyReportQuery::class => EloquentDailyReportQuery::class,
+        SalesExportQuery::class => EloquentSalesExportQuery::class,
         PaymentHistory::class => EloquentPaymentHistory::class,
         StoreDirectory::class => EloquentStoreDirectory::class,
 

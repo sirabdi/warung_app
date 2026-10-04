@@ -16,7 +16,7 @@ use Inertia\Response;
  */
 class CashierController extends Controller
 {
-    public const PER_PAGE = 20;
+    public const PER_PAGE = 15;
 
     public function index(ProductListRequest $request, ProductsForCashier $products, CategoryList $categories): Response
     {

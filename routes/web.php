@@ -16,6 +16,7 @@ use App\Presentation\Http\Controllers\Payment\PaymentSimulationController;
 use App\Presentation\Http\Controllers\Payment\XenditWebhookController;
 use App\Presentation\Http\Controllers\ProductController;
 use App\Presentation\Http\Controllers\ReportController;
+use App\Presentation\Http\Controllers\ReportExportController;
 use App\Presentation\Http\Controllers\StockInController;
 use App\Presentation\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
@@ -74,6 +75,7 @@ Route::middleware(['auth', 'store', 'subscribed'])->group(function () {
     Route::get('/categories', [CategoryController::class, 'index'])->name('categories');
     Route::get('/stock-in', [StockInController::class, 'index'])->name('stock-in');
     Route::get('/report', [ReportController::class, 'index'])->name('report');
+    Route::get('/report/export', ReportExportController::class)->name('report.export');
 
     // JSON API used by TanStack Query. It lives in the web group on purpose:
     // the same session cookie and CSRF token as the pages, no extra auth layer.
