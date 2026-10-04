@@ -1,6 +1,6 @@
-# Warung App
+# Satu Usaha
 
-Aplikasi kasir sederhana untuk warung kecil. Laravel 12 + Inertia + React +
+Aplikasi kasir & stok untuk usaha: warung, toko kelontong, minimarket, hingga restoran. Laravel 12 + Inertia + React +
 TanStack Query, database MySQL.
 
 Lingkup MVP dan daftar backlog ada di [CATATAN.md](CATATAN.md). Struktur kode

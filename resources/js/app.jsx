@@ -6,8 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from '@/components/ui/sonner';
-
-const appName = import.meta.env.VITE_APP_NAME || 'Warung';
+import { appName } from '@/lib/app';
 
 // One cache for the whole app. Inertia still renders the pages; TanStack Query
 // owns the data inside them.

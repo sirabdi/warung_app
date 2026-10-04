@@ -198,7 +198,7 @@ function DetailsStep({ email }) {
 
 export default function Register({ email, verified, resendIn, codeMinutes }) {
     return (
-        <AuthCard title="Daftar" description="Buat akun untuk warungmu" className="max-w-md">
+        <AuthCard title="Daftar" description="Buat akun untuk usahamu" className="max-w-md">
             <Steps current={verified ? 1 : 0} />
             {!email && <EmailStep />}
             {email && !verified && <CodeStep email={email} resendIn={resendIn} codeMinutes={codeMinutes} />}

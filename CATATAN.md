@@ -1,4 +1,4 @@
-# Catatan Scope — Warung App (MVP)
+# Catatan Scope — Satu Usaha (MVP)
 
 ## Yang dikerjakan sekarang (hanya 4 ini)
 

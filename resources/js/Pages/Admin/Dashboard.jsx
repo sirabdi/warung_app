@@ -10,6 +10,7 @@ import { Empty, EmptyDescription } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { appName } from '@/lib/app';
 import { daysUntil, formatDate, formatDateTime, formatNumber, formatRupiah } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -99,7 +100,7 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
                     <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                         <ShieldCheck className="size-4" />
                     </span>
-                    <span className="truncate font-semibold">Admin Warung</span>
+                    <span className="truncate font-semibold">Admin {appName}</span>
                     <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => router.post('/logout')}>
                         <LogOut />
                         <span className="hidden sm:inline">Keluar ({auth.user?.name})</span>

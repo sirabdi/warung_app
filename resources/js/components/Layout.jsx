@@ -13,6 +13,7 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { appName } from '@/lib/app';
 import { daysUntil, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from '@/toast';
@@ -176,7 +177,7 @@ export default function Layout({ title, breadcrumbs, footer = true, children }) 
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
                         <Store className="size-4" />
                     </span>
-                    {!collapsed && <span className="truncate text-lg font-bold">Warung</span>}
+                    {!collapsed && <span className="truncate text-lg font-bold">{appName}</span>}
                 </div>
 
                 <nav className={cn('flex flex-1 flex-col gap-1 p-3', collapsed && 'items-center px-0')}>
@@ -242,7 +243,7 @@ export default function Layout({ title, breadcrumbs, footer = true, children }) 
 
                         <Separator orientation="vertical" className="hidden !h-5 lg:block" />
                         <PageBreadcrumb
-                            storeName={props.auth?.store?.name ?? 'Warung'}
+                            storeName={props.auth?.store?.name ?? appName}
                             trail={breadcrumbs ?? defaultTrail(path, title)}
                         />
 
