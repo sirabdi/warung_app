@@ -443,7 +443,7 @@ export default function Cashier({
     );
 
     return (
-        <Layout title="Kasir">
+        <Layout title="Kasir" footer={false}>
             <div
                 className={cn(
                     "md:grid md:grid-cols-[1fr_340px] md:gap-4",

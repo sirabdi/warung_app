@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Loader2, LogOut, Search, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import DataPagination from '@/components/DataPagination';
+import Footer from '@/components/Footer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,7 +92,7 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
     }, [debouncedSearch]);
 
     return (
-        <div className="min-h-dvh">
+        <div className="flex min-h-dvh flex-col">
             <Head title="Admin" />
             <header className="sticky top-0 z-20 border-b bg-card/90 backdrop-blur">
                 <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 md:px-4">
@@ -107,7 +108,7 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
                 </div>
             </header>
 
-            <main className="mx-auto max-w-6xl space-y-4 p-3 md:p-4">
+            <main className="mx-auto w-full max-w-6xl flex-1 space-y-4 p-3 md:p-4">
                 <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                     <StatCard
                         label="Pelanggan aktif"
@@ -252,6 +253,7 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
                     </Card>
                 )}
             </main>
+            <Footer />
         </div>
     );
 }
