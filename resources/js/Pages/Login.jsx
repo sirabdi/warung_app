@@ -4,6 +4,7 @@ import PasswordInput from '@/components/PasswordInput';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { appName } from '@/lib/app';
 
 export default function Login() {
     const form = useForm({ email: '', password: '' });
@@ -14,7 +15,7 @@ export default function Login() {
     };
 
     return (
-        <AuthCard title="Warung" description="Masuk untuk mulai berjualan">
+        <AuthCard title={appName} description="Masuk untuk mulai berjualan">
             <form onSubmit={submit} className="space-y-4">
                 <Field>
                     <FieldLabel htmlFor="email">Email</FieldLabel>

@@ -85,7 +85,7 @@ final class DailyReportWorkbook
     /** Laporan-Warung-Bu-Sri-2026-10-03.xlsx */
     public function fileName(): string
     {
-        return 'Laporan-'.(Str::slug((string) $this->storeName) ?: 'warung').'-'.$this->date->toDateString().'.xlsx';
+        return 'Laporan-'.(Str::slug((string) $this->storeName) ?: 'toko').'-'.$this->date->toDateString().'.xlsx';
     }
 
     public function saveTo(string $path): void

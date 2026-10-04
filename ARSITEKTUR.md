@@ -177,6 +177,7 @@ pesan domain (`Stok Beras tinggal 1.`) muncul persis di bawah kolom terkait.
 | `GET /stock-in` | StockInController@index | `StockIn` |
 | `GET /report` | ReportController@index | `Report` |
 | `GET /report/export?date=` | ReportExportController (unduhan .xlsx) | — |
+| `GET /customer-display` | (Route::inertia) | `CustomerDisplay` — monitor kedua, diisi jendela kasir lewat BroadcastChannel |
 | `GET /register` (+ `POST /register/code`, `/register/verify`, `/register/restart`, `/register`) | Auth\RegisterController | `Register` |
 | `GET /subscription`, `POST /subscription/checkout` | SubscriptionController | `Subscription` |
 | `GET /subscription/finish/{payment}` | SubscriptionController@finish | `PaymentFinish` |

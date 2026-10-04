@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Loader2, LogOut, Search, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import DataPagination from '@/components/DataPagination';
+import Footer from '@/components/Footer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Empty, EmptyDescription } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { appName } from '@/lib/app';
 import { daysUntil, formatDate, formatDateTime, formatNumber, formatRupiah } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -91,14 +93,14 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
     }, [debouncedSearch]);
 
     return (
-        <div className="min-h-dvh">
+        <div className="flex min-h-dvh flex-col">
             <Head title="Admin" />
             <header className="sticky top-0 z-20 border-b bg-card/90 backdrop-blur">
                 <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 md:px-4">
                     <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                         <ShieldCheck className="size-4" />
                     </span>
-                    <span className="truncate font-semibold">Admin Warung</span>
+                    <span className="truncate font-semibold">Admin {appName}</span>
                     <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => router.post('/logout')}>
                         <LogOut />
                         <span className="hidden sm:inline">Keluar ({auth.user?.name})</span>
@@ -107,7 +109,7 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
                 </div>
             </header>
 
-            <main className="mx-auto max-w-6xl space-y-4 p-3 md:p-4">
+            <main className="mx-auto w-full max-w-6xl flex-1 space-y-4 p-3 md:p-4">
                 <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                     <StatCard
                         label="Pelanggan aktif"
@@ -252,6 +254,7 @@ export default function Dashboard({ summary, stores, recentPayments, filters, ex
                     </Card>
                 )}
             </main>
+            <Footer />
         </div>
     );
 }

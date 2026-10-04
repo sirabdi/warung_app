@@ -1,4 +1,4 @@
-# Catatan Scope — Warung App (MVP)
+# Catatan Scope — Satu Usaha (MVP)
 
 ## Yang dikerjakan sekarang (hanya 4 ini)
 
@@ -32,6 +32,14 @@ Tambahan atas permintaan pemilik (Oktober 2026):
   `.xlsx` untuk tanggal yang dipilih: Ringkasan, Transaksi (per struk), Rincian
   item, Per produk (semua, bukan hanya 5 teratas), Per kategori, dan Stok
   menipis (stok saat file dibuat). Nama/kategori produk mengikuti data sekarang.
+- **Layar pelanggan (monitor kedua)** — tombol monitor di keranjang kasir membuka
+  `/customer-display`; geser ke monitor kedua lalu F11. Isinya mengikuti
+  keranjang secara langsung lewat BroadcastChannel (tanpa server, harus browser
+  yang sama di komputer kasir). Kasir bisa mengisi **uang dibayar** (opsional,
+  ada tombol Uang pas dan pecahan) dan melihat **kembalian**; keduanya tampil
+  juga di layar pelanggan, lalu "Terima kasih" ±15 detik. Uang dibayar belum
+  disimpan ke database. Agar terbuka otomatis di monitor kedua:
+  `chrome --kiosk --window-position=1920,0 http://<alamat>/customer-display`.
 
 ## Backlog — JANGAN dikerjakan dulu
 

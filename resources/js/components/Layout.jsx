@@ -9,9 +9,11 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { appName } from '@/lib/app';
 import { daysUntil, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from '@/toast';
@@ -127,7 +129,8 @@ function PageBreadcrumb({ storeName, trail }) {
 
 const orDash = (value) => value?.trim() || '-';
 
-export default function Layout({ title, breadcrumbs, children }) {
+// `footer={false}` for a working screen that fills the window (Kasir).
+export default function Layout({ title, breadcrumbs, footer = true, children }) {
     const { url, props } = usePage();
     const path = url.split('?')[0];
     const userName = props.auth?.user?.name;
@@ -174,7 +177,7 @@ export default function Layout({ title, breadcrumbs, children }) {
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
                         <Store className="size-4" />
                     </span>
-                    {!collapsed && <span className="truncate text-lg font-bold">Warung</span>}
+                    {!collapsed && <span className="truncate text-lg font-bold">{appName}</span>}
                 </div>
 
                 <nav className={cn('flex flex-1 flex-col gap-1 p-3', collapsed && 'items-center px-0')}>
@@ -217,7 +220,8 @@ export default function Layout({ title, breadcrumbs, children }) {
                 </div>
             </aside>
 
-            <div className="min-w-0 flex-1 pb-20 lg:pb-0">
+            {/* A column as tall as the window, so a short page keeps its footer at the bottom. */}
+            <div className="flex min-h-dvh min-w-0 flex-1 flex-col pb-20 lg:pb-0">
                 <header className="sticky top-0 z-20 border-b bg-card/90 backdrop-blur">
                     <div className="flex h-14 items-center gap-2 px-3 lg:px-4">
                         <Tooltip>
@@ -239,7 +243,7 @@ export default function Layout({ title, breadcrumbs, children }) {
 
                         <Separator orientation="vertical" className="hidden !h-5 lg:block" />
                         <PageBreadcrumb
-                            storeName={props.auth?.store?.name ?? 'Warung'}
+                            storeName={props.auth?.store?.name ?? appName}
                             trail={breadcrumbs ?? defaultTrail(path, title)}
                         />
 
@@ -280,7 +284,8 @@ export default function Layout({ title, breadcrumbs, children }) {
                     </div>
                 )}
 
-                <main className="mx-auto max-w-6xl p-3 md:p-4">{children}</main>
+                <main className="mx-auto w-full max-w-6xl flex-1 p-3 md:p-4">{children}</main>
+                {footer && <Footer />}
             </div>
 
             {/* Bottom navigation for phones */}

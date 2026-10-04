@@ -76,6 +76,8 @@ Route::middleware(['auth', 'store', 'subscribed'])->group(function () {
     Route::get('/stock-in', [StockInController::class, 'index'])->name('stock-in');
     Route::get('/report', [ReportController::class, 'index'])->name('report');
     Route::get('/report/export', ReportExportController::class)->name('report.export');
+    // Second monitor facing the buyer; the cashier window feeds it (see lib/customer-display.js).
+    Route::inertia('/customer-display', 'CustomerDisplay')->name('customer-display');
 
     // JSON API used by TanStack Query. It lives in the web group on purpose:
     // the same session cookie and CSRF token as the pages, no extra auth layer.
