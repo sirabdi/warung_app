@@ -3,6 +3,7 @@ import {
     AlertCircle,
     Check,
     Minus,
+    Monitor,
     Pencil,
     Plus,
     Search,
@@ -13,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import DataPagination from "@/components/DataPagination";
 import Layout from "@/components/Layout";
+import NumberInput from "@/components/NumberInput";
 import WeighDialog from "@/components/WeighDialog";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,11 @@ import {
     useRecordSale,
 } from "@/api/hooks";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import {
+    cashSuggestions,
+    openCustomerDisplay,
+    useCustomerDisplayFeed,
+} from "@/lib/customer-display";
 import { formatRupiah } from "@/lib/format";
 import {
     formatPrice,
@@ -53,6 +60,85 @@ import {
 import { cn } from "@/lib/utils";
 
 const ALL = "all";
+
+// What the buyer paid, with one-tap amounts: the exact total and the notes
+// they are likely to hand over. Optional: leave it empty to just sell.
+function Payment({ total, paid, change, onPaidChange }) {
+    const amounts = [total, ...cashSuggestions(total)];
+
+    return (
+        <div className="mb-3 space-y-2">
+            <div className="flex items-center gap-2">
+                <label
+                    htmlFor="paid"
+                    className="w-24 shrink-0 text-sm text-muted-foreground"
+                >
+                    Uang dibayar
+                </label>
+                <NumberInput
+                    id="paid"
+                    placeholder="Opsional"
+                    className="text-right text-lg font-semibold tabular-nums"
+                    value={paid}
+                    onChange={onPaidChange}
+                />
+            </div>
+            <div className="flex flex-wrap gap-1">
+                {amounts.map((amount, index) => (
+                    <Button
+                        key={amount}
+                        type="button"
+                        size="sm"
+                        variant={paid === amount ? "default" : "outline"}
+                        onClick={() => onPaidChange(amount)}
+                        className="flex-1 tabular-nums"
+                    >
+                        {index === 0 ? "Uang pas" : formatRupiah(amount)}
+                    </Button>
+                ))}
+            </div>
+            {change !== null && (
+                <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">
+                        {change < 0 ? "Kurang" : "Kembalian"}
+                    </span>
+                    <span
+                        className={cn(
+                            "text-2xl font-bold tabular-nums",
+                            change < 0 ? "text-destructive" : "text-primary",
+                        )}
+                    >
+                        {formatRupiah(Math.abs(change))}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// The cart is cleared after "Selesai"; the change stays in view until the next item.
+function LastSale({ sale }) {
+    return (
+        <div className="space-y-2 p-4 text-center">
+            <Check className="mx-auto size-8 text-primary" />
+            <div className="font-semibold">Transaksi selesai</div>
+            <div className="text-sm text-muted-foreground">
+                Total {formatRupiah(sale.total)}
+                {sale.paid !== null && ` · dibayar ${formatRupiah(sale.paid)}`}
+            </div>
+            {sale.paid !== null && (
+                <div>
+                    <div className="text-sm text-muted-foreground">
+                        Kembalian
+                    </div>
+                    <div className="text-3xl font-bold text-primary tabular-nums">
+                        {formatRupiah(sale.paid - sale.total)}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function Cashier({
     products: initialPage,
@@ -67,7 +153,14 @@ export default function Cashier({
     const [cart, setCart] = useState({});
     const [weighing, setWeighing] = useState(null); // product in the weigh dialog
     const [showCart, setShowCart] = useState(false);
+    // What the buyer handed over, '' until typed. Only for the change: the sale
+    // itself does not store it.
+    const [paid, setPaid] = useState("");
+    const [highlight, setHighlight] = useState(null); // last product touched
+    const [lastSale, setLastSale] = useState(null); // { code, total, paid }
     const searchRef = useRef(null);
+    const paidRef = useRef(paid);
+    paidRef.current = paid;
 
     // The page belongs to one filter: a new search or category starts at page 1.
     const debouncedQuery = useDebouncedValue(query.trim());
@@ -91,8 +184,15 @@ export default function Cashier({
     const { data: allCategories } = useCategoryOptions(initialCategories);
     const categories = allCategories.filter((item) => item.products_count > 0);
 
-    const sale = useRecordSale(() => {
+    const sale = useRecordSale((result) => {
+        setLastSale({
+            code: result.code,
+            total: result.total,
+            paid: paidRef.current === "" ? null : paidRef.current,
+        });
         setCart({});
+        setPaid("");
+        setHighlight(null);
         setShowCart(false);
         searchRef.current?.focus();
     });
@@ -116,9 +216,36 @@ export default function Cashier({
         0,
     );
     const qtyInCart = (product) => cart[product.id]?.qty ?? 0;
+    const change = paid === "" ? null : paid - total;
+    const short = change !== null && change < 0;
+
+    // The second monitor follows the cart, the payment, and the finished sale.
+    useCustomerDisplayFeed({
+        lines: items.map(({ product, qty }) => ({
+            id: product.id,
+            name: product.name,
+            unit: product.unit,
+            qty,
+            price: product.sell_price,
+            total: lineTotal(product.sell_price, qty, product.unit),
+        })),
+        count,
+        total,
+        paid: paid === "" ? null : paid,
+        highlight,
+        done: items.length === 0 ? lastSale : null,
+    });
+
+    const clearCart = () => {
+        setCart({});
+        setPaid("");
+        setHighlight(null);
+    };
 
     const setQty = (product, qty) => {
         if (sale.isError) sale.reset();
+        setLastSale(null);
+        setHighlight(qty > 0 ? product.id : null);
         setCart((current) => {
             const next = { ...current };
             if (qty <= 0) delete next[product.id];
@@ -147,7 +274,7 @@ export default function Cashier({
     };
 
     const checkout = () => {
-        if (!items.length || sale.isPending) return;
+        if (!items.length || sale.isPending || short) return;
         sale.mutate(
             items.map((item) => ({
                 product_id: item.product.id,
@@ -164,26 +291,42 @@ export default function Cashier({
                     Keranjang
                     <Badge variant="secondary">{count}</Badge>
                 </h2>
-                {items.length > 0 && (
+                <div className="flex items-center gap-1">
+                    {items.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearCart}
+                            className="text-destructive"
+                        >
+                            <Trash2 />
+                            Kosongkan
+                        </Button>
+                    )}
+                    {/* A second monitor needs a computer: not offered on phones. */}
                     <Button
                         variant="ghost"
-                        size="sm"
-                        onClick={() => setCart({})}
-                        className="text-destructive"
+                        size="icon"
+                        onClick={openCustomerDisplay}
+                        className="hidden text-muted-foreground md:inline-flex"
+                        title="Buka layar pelanggan (monitor kedua)"
                     >
-                        <Trash2 />
-                        Kosongkan
+                        <Monitor />
+                        <span className="sr-only">Buka layar pelanggan</span>
                     </Button>
-                )}
+                </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-                {items.length === 0 && (
-                    <Empty>
-                        <EmptyDescription>
-                            Ketuk produk untuk menambah
-                        </EmptyDescription>
-                    </Empty>
-                )}
+                {items.length === 0 &&
+                    (lastSale ? (
+                        <LastSale sale={lastSale} />
+                    ) : (
+                        <Empty>
+                            <EmptyDescription>
+                                Ketuk produk untuk menambah
+                            </EmptyDescription>
+                        </Empty>
+                    ))}
                 {items.map(({ product, qty }) => (
                     <div
                         key={product.id}
@@ -272,10 +415,18 @@ export default function Cashier({
                         {formatRupiah(total)}
                     </span>
                 </div>
+                {items.length > 0 && (
+                    <Payment
+                        total={total}
+                        paid={paid}
+                        change={change}
+                        onPaidChange={setPaid}
+                    />
+                )}
                 <Button
                     size="xl"
                     onClick={checkout}
-                    disabled={!items.length || sale.isPending}
+                    disabled={!items.length || sale.isPending || short}
                     className="w-full"
                 >
                     {sale.isPending ? (
@@ -464,7 +615,7 @@ export default function Cashier({
                         <Button
                             size="lg"
                             onClick={checkout}
-                            disabled={sale.isPending}
+                            disabled={sale.isPending || short}
                             className="shadow-lg"
                         >
                             {sale.isPending ? (

@@ -468,6 +468,17 @@ class CoreFeaturesTest extends TestCase
             ->has('categories'));
     }
 
+    public function test_customer_display_shows_the_own_store(): void
+    {
+        $user = $this->login();
+        $user->store->update(['name' => 'Warung Bu Sri', 'address' => 'Jl. Melati 5']);
+
+        $this->get('/customer-display')->assertOk()->assertInertia(fn ($page) => $page
+            ->component('CustomerDisplay')
+            ->where('auth.store.name', 'Warung Bu Sri')
+            ->where('auth.store.address', 'Jl. Melati 5'));
+    }
+
     public function test_report_low_stock_is_paginated(): void
     {
         $this->login();
